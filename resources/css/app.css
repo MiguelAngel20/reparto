@@ -1,0 +1,225 @@
+@import 'tailwindcss';
+@plugin 'tailwindcss-animate';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+@source '../**/*.tsx';
+
+/* Modo oscuro personalizado */
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+
+    /* Variables de color para modo claro */
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.145 0 0);
+    --muted: oklch(0.96 0 0);
+    --muted-foreground: oklch(0.45 0 0);
+    --accent: oklch(0.96 0 0);
+    --accent-foreground: oklch(0.145 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(0.985 0 0);
+    --border: oklch(0.9 0 0);
+    --input: oklch(0.9 0 0);
+    --ring: oklch(0.205 0 0);
+
+    /* Variables del Sidebar */
+    --sidebar: oklch(1 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(1 0 0);
+    --sidebar-primary-foreground: oklch(0.145 0 0);
+    --sidebar-accent: oklch(0.96 0 0);
+    --sidebar-accent-foreground: oklch(0.145 0 0);
+    --sidebar-border: oklch(0.9 0 0);
+    --sidebar-ring: oklch(0.205 0 0);
+}
+
+/* @layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+} */
+
+/* Estilos para modo oscuro */
+:root.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.2 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.985 0 0);
+    --primary-foreground: oklch(0.145 0 0);
+    --secondary: oklch(0.25 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.25 0 0);
+    --muted-foreground: oklch(0.65 0 0);
+    --accent: oklch(0.25 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(0.985 0 0);
+    --border: oklch(0.3 0 0);
+    --input: oklch(0.3 0 0);
+    --ring: oklch(0.985 0 0);
+
+    --sidebar: oklch(0.145 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.145 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.25 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(0.3 0 0);
+    --sidebar-ring: oklch(0.985 0 0);
+}
+
+:root {
+    --sidebar: hsl(0 0% 98%);
+    --sidebar-foreground: hsl(240 5.3% 26.1%);
+    --sidebar-primary: hsl(240 5.9% 10%);
+    --sidebar-primary-foreground: hsl(0 0% 98%);
+    --sidebar-accent: hsl(240 4.8% 95.9%);
+    --sidebar-accent-foreground: hsl(240 5.9% 10%);
+    --sidebar-border: hsl(220 13% 91%);
+    --sidebar-ring: hsl(217.2 91.2% 59.8%);
+    --sidebar-logo: #22AE72;
+    /* Color de ítem activo del sidebar (cambiar según logo del cliente) */
+    --sidebar-active: #0085F3;
+}
+
+.dark {
+    --sidebar: hsl(240 5.9% 10%);
+    --sidebar-foreground: hsl(240 4.8% 95.9%);
+    --sidebar-primary: hsl(224.3 76.3% 48%);
+    --sidebar-primary-foreground: hsl(0 0% 100%);
+    --sidebar-accent: hsl(240 3.7% 15.9%);
+    --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+    --sidebar-border: hsl(240 3.7% 15.9%);
+    --sidebar-ring: hsl(217.2 91.2% 59.8%);
+    --sidebar-active: #0085F3;
+}
+
+/* Scrollbar oscuro en modo dark (Chrome, Safari, Edge) */
+.dark ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+.dark ::-webkit-scrollbar-track {
+    background: hsl(240 3.7% 15.9%);
+    border-radius: 5px;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background: hsl(240 5% 28%);
+    border-radius: 5px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(240 5% 35%);
+}
+/* Firefox */
+.dark {
+    scrollbar-color: hsl(240 5% 28%) hsl(240 3.7% 15.9%);
+}
+.dark * {
+    scrollbar-width: thin;
+}
+
+/* Icono del calendario en inputs type="date" - blanco en modo dark (Chrome, Edge, Safari) */
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.8;
+}
+
+@theme inline {
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-active: var(--sidebar-active);
+}
+
+/* @layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+} */
+
+/* Estilos para impresión de ticket de 55mm */
+@media print {
+    @page {
+        size: 55mm auto;
+        margin: 0;
+        padding: 0;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
+    /* Ocultar todo el body excepto el ticket */
+    body * {
+        visibility: hidden !important;
+    }
+
+    /* Mostrar solo el contenido del ticket */
+    #ticket-content,
+    #ticket-content * {
+        visibility: visible !important;
+    }
+
+    /* Posicionar el ticket */
+    #ticket-content {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 55mm !important;
+        max-width: 55mm !important;
+        margin: 0 !important;
+        padding: 4mm !important;
+        background: white !important;
+        color: black !important;
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+    }
+
+    /* Ocultar overlay, botones y elementos del dialog */
+    [data-radix-portal] > div:first-child,
+    [data-radix-dialog-overlay],
+    [data-radix-dialog-content] > button,
+    button,
+    .print\\:hidden,
+    .sr-only {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Asegurar que el dialog content no tenga estilos que interfieran */
+    [data-radix-dialog-content] {
+        position: static !important;
+        transform: none !important;
+        max-width: 100% !important;
+        width: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+}
