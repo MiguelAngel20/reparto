@@ -18,13 +18,9 @@ import {
     ChevronUp,
     ChevronRight,
     LayoutGrid,
-    ListOrdered,
     LogOut,
     Package,
     Settings,
-    ShoppingCart,
-    TrendingUp,
-    Wallet,
     X,
 } from 'lucide-react';
 
@@ -37,22 +33,10 @@ interface AppSidebarProps {
     onClose?: () => void;
 }
 
-/** Menú principal de Reparto — ampliar según módulos del negocio */
 const allNavItems: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
     { title: 'Iniciar jornada', href: '/reparto', icon: Package },
     { title: 'Captura manual', href: '/captura-manual', icon: ClipboardList },
-    { title: 'Repartidores', href: '/repartidores', icon: TrendingUp },
-    { title: 'Clientes', href: '/clientes', icon: ShoppingCart },
-    {
-        title: 'Operación',
-        icon: Wallet,
-        submenu: [
-            { title: 'Caja', href: '/caja' },
-            { title: 'Gastos', href: '/gastos' },
-        ],
-    },
-    { title: 'Reportes', href: '/reportes', icon: ListOrdered },
 ];
 
 export function AppSidebar({ collapsed = false, narrow = false, asDrawer = false, onClose }: AppSidebarProps) {
