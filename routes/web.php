@@ -18,41 +18,6 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
-Route::get('/manifest.webmanifest', function () {
-    $name = config('app.name', 'Reparto');
-
-    return response()->json([
-        'name' => $name,
-        'short_name' => mb_substr($name, 0, 12),
-        'description' => 'Control de jornadas y pedidos de reparto',
-        'start_url' => '/',
-        'scope' => '/',
-        'display' => 'standalone',
-        'orientation' => 'portrait',
-        'background_color' => '#ffffff',
-        'theme_color' => '#0085F3',
-        'lang' => 'es',
-        'icons' => [
-            [
-                'src' => '/icons/icon-192.png',
-                'sizes' => '192x192',
-                'type' => 'image/png',
-            ],
-            [
-                'src' => '/icons/icon-512.png',
-                'sizes' => '512x512',
-                'type' => 'image/png',
-            ],
-            [
-                'src' => '/icons/icon-512-maskable.png',
-                'sizes' => '512x512',
-                'type' => 'image/png',
-                'purpose' => 'maskable',
-            ],
-        ],
-    ], 200, ['Content-Type' => 'application/manifest+json']);
-})->name('pwa.manifest');
-
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
     ->name('verification.verify');
 
