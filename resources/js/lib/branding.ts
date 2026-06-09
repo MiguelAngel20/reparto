@@ -1,5 +1,5 @@
 /** Logo por defecto del sistema (sidebar, header, login). */
-export const DEFAULT_APP_LOGO_URL = '/images/logoreparto.png';
+export const DEFAULT_APP_LOGO_URL = '/images/logoreparto.webp';
 
 /** Misma imagen en la pantalla de login (como sisventas). */
 export const LOGIN_LOGO_URL = DEFAULT_APP_LOGO_URL;

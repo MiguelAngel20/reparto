@@ -1,1 +1,0 @@
-var e=`/images/logoreparto.png`;function t(t){return t?.trim()?t:e}export{t};

@@ -1,0 +1,1 @@
+var e=`/images/logoreparto.webp`;function t(t){return t?.trim()?t:e}export{t};
