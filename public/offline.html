@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sin conexión</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+        .box {
+            text-align: center;
+            padding: 32px;
+            max-width: 360px;
+        }
+        .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        h1 {
+            font-size: 20px;
+            margin: 0 0 8px;
+        }
+        p {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0 0 24px;
+        }
+        button {
+            padding: 12px 24px;
+            background: #0085F3;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="icon">📡</div>
+        <h1>Sin conexión a internet</h1>
+        <p>No pudimos cargar la página. Revisa tu conexión e intenta de nuevo.</p>
+        <button onclick="location.reload()">Reintentar</button>
+    </div>
+</body>
+</html>

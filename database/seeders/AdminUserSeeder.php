@@ -17,8 +17,8 @@ class AdminUserSeeder extends Seeder
             [
                 'name' => 'Miguel Angel',
                 'password' => '12344321',
-                'company_name' => 'Reparto',
-                'percentage' => 100,
+                'company_name' => 'Clikio',
+                'percentage' => 66.70,
                 'role' => 'admin',
                 'email_verified_at' => now(),
             ],

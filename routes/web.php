@@ -18,9 +18,53 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
+Route::get('/manifest.webmanifest', function () {
+    $name = config('app.name', 'Reparto');
+
+    return response()->json([
+        'name' => $name,
+        'short_name' => mb_substr($name, 0, 12),
+        'description' => 'Control de jornadas y pedidos de reparto',
+        'start_url' => '/',
+        'scope' => '/',
+        'display' => 'standalone',
+        'orientation' => 'portrait',
+        'background_color' => '#ffffff',
+        'theme_color' => '#0085F3',
+        'lang' => 'es',
+        'icons' => [
+            [
+                'src' => '/icons/icon-192.png',
+                'sizes' => '192x192',
+                'type' => 'image/png',
+            ],
+            [
+                'src' => '/icons/icon-512.png',
+                'sizes' => '512x512',
+                'type' => 'image/png',
+            ],
+            [
+                'src' => '/icons/icon-512-maskable.png',
+                'sizes' => '512x512',
+                'type' => 'image/png',
+                'purpose' => 'maskable',
+            ],
+        ],
+    ], 200, ['Content-Type' => 'application/manifest+json']);
+})->name('pwa.manifest');
+
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->name('verification.verify');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+
+    Route::get('/login/verify', [AuthController::class, 'showVerifyForm'])->name('login.verify');
+    Route::post('/login/verify', [AuthController::class, 'verifyLoginCode'])->middleware('throttle:12,1');
+    Route::post('/login/resend-code', [AuthController::class, 'resendLoginCode'])->middleware('throttle:3,1');
+    Route::post('/login/cancel', [AuthController::class, 'cancelVerification'])->name('login.cancel');
+
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
 });
