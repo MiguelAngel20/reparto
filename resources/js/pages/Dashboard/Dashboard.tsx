@@ -378,7 +378,11 @@ export default function Dashboard({
                     )}
                 </div>
                 <div className="h-72 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer
+                        width="100%"
+                        height="100%"
+                        initialDimension={{ width: 600, height: 288 }}
+                    >
                         <BarChart data={chartData}>
                             <CartesianGrid
                                 strokeDasharray="3 3"

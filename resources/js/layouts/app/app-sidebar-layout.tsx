@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePage } from '@inertiajs/react';
+import { AppBottomNav } from '@/components/app-bottom-nav';
 import { AppContent } from '@/components/app-content';
 import { AppFooter } from '@/components/app-footer';
 import { AppHeader } from '@/components/app-header';
@@ -11,6 +12,7 @@ import { type BreadcrumbItem } from '@/types';
 
 const SIDEBAR_EXPAND_BREAKPOINT = 1280; // Por debajo de este ancho el sidebar queda colapsado
 const MOBILE_BREAKPOINT = 768; // Por debajo: sidebar oculto, menú hamburguesa
+const PHONE_BREAKPOINT = 500; // Por debajo: barra de navegación inferior tipo app
 
 interface AppSidebarLayoutProps {
     children: React.ReactNode;
@@ -37,6 +39,11 @@ export default function AppSidebarLayout({ children, breadcrumbs = [], title, fu
             ? window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches
             : false
     );
+    const [isPhone, setIsPhone] = useState(() =>
+        typeof window !== 'undefined'
+            ? window.matchMedia(`(max-width: ${PHONE_BREAKPOINT - 1}px)`).matches
+            : false
+    );
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     useEffect(() => {
@@ -53,6 +60,14 @@ export default function AppSidebarLayout({ children, breadcrumbs = [], title, fu
     useEffect(() => {
         const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
         const handleChange = () => setIsMobile(mq.matches);
+        handleChange();
+        mq.addEventListener('change', handleChange);
+        return () => mq.removeEventListener('change', handleChange);
+    }, []);
+
+    useEffect(() => {
+        const mq = window.matchMedia(`(max-width: ${PHONE_BREAKPOINT - 1}px)`);
+        const handleChange = () => setIsPhone(mq.matches);
         handleChange();
         mq.addEventListener('change', handleChange);
         return () => mq.removeEventListener('change', handleChange);
@@ -76,7 +91,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [], title, fu
                 <AppSidebar collapsed={sidebarCollapsed} narrow={isNarrow} />
             )}
 
-            {isMobile && (
+            {isMobile && !isPhone && (
                 <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                     <SheetContent side="left" showCloseButton={false} className="w-72 max-w-[85vw] p-0">
                         <AppSidebar
@@ -89,13 +104,15 @@ export default function AppSidebarLayout({ children, breadcrumbs = [], title, fu
                 </Sheet>
             )}
 
-            <div className={cn('flex min-h-screen flex-col transition-all duration-300', contentMargin)}>
+            {isPhone && <AppBottomNav />}
+
+            <div className={cn('flex min-h-screen flex-col transition-all duration-300', contentMargin, isPhone && 'pb-16')}>
                 <AppHeader
                     breadcrumbs={breadcrumbs}
                     sidebarCollapsed={sidebarCollapsed}
                     onToggleSidebar={!isMobile ? () => setSidebarCollapsed((prev) => !prev) : undefined}
                     isMobile={isMobile}
-                    onOpenMobileMenu={isMobile ? () => setMobileMenuOpen(true) : undefined}
+                    onOpenMobileMenu={isMobile && !isPhone ? () => setMobileMenuOpen(true) : undefined}
                 />
 
                 <div className="flex-1">

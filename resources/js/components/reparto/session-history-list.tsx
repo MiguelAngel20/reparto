@@ -101,8 +101,8 @@ export function SessionHistoryList({
                         {filteredSessions.length !== 1 ? 's' : ''} en el rango
                     </p>
                 </div>
-                <div className="flex flex-wrap items-end gap-2">
-                    <div>
+                <div className="grid grid-cols-2 items-end gap-2 sm:flex">
+                    <div className="min-w-0">
                         <Label className="mb-1 block text-[10px] uppercase text-slate-500">
                             Desde
                         </Label>
@@ -110,10 +110,10 @@ export function SessionHistoryList({
                             type="date"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
-                            className="h-9 w-36"
+                            className="h-9 w-full min-w-0 text-xs sm:w-36 sm:text-sm"
                         />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                         <Label className="mb-1 block text-[10px] uppercase text-slate-500">
                             Hasta
                         </Label>
@@ -121,7 +121,7 @@ export function SessionHistoryList({
                             type="date"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
-                            className="h-9 w-36"
+                            className="h-9 w-full min-w-0 text-xs sm:w-36 sm:text-sm"
                         />
                     </div>
                 </div>
@@ -154,21 +154,19 @@ export function SessionHistoryList({
                                 key={s.id}
                                 className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]/50"
                             >
-                                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                                    <div>
+                                <div className="mb-3 flex items-start justify-between gap-2">
+                                    <div className="flex min-w-0 flex-col items-start gap-1.5">
                                         <p className="text-base font-semibold text-slate-900 dark:text-white">
                                             {s.capture_date_formatted}
                                         </p>
-                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                                            <span className="rounded-md bg-sidebar-active/10 px-2 py-0.5 font-medium text-sidebar-active">
-                                                {s.session_type_label}
-                                            </span>
-                                            <span className="text-slate-500">
-                                                {s.entries_count ?? s.count ?? 0} pedidos
-                                            </span>
-                                        </div>
+                                        <span className="rounded-md bg-sidebar-active/10 px-2 py-0.5 text-xs font-medium text-sidebar-active">
+                                            {s.session_type_label}
+                                        </span>
+                                        <span className="text-xs text-slate-500">
+                                            {s.entries_count ?? s.count ?? 0} pedidos
+                                        </span>
                                     </div>
-                                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                    <div className="flex shrink-0 flex-col items-end gap-2">
                                         {showWorkDuration && s.work_duration_formatted && (
                                             <span className="rounded-lg bg-sidebar-active/10 px-3 py-1.5 text-sm font-semibold text-sidebar-active">
                                                 {s.work_duration_formatted}

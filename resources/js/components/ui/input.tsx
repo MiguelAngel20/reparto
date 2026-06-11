@@ -46,19 +46,11 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
             return () => el.removeEventListener('wheel', blockWheelChange);
         }, [type]);
 
-        const handleWheel =
-            type === 'number'
-                ? (e: React.WheelEvent<HTMLInputElement>) => {
-                      e.preventDefault();
-                      onWheel?.(e);
-                  }
-                : onWheel;
-
         return (
             <input
                 ref={setRefs}
                 type={type}
-                onWheel={handleWheel}
+                onWheel={onWheel}
                 data-slot="input"
                 className={cn(
                     'file:text-foreground placeholder:text-slate-400 dark:placeholder:text-slate-500 selection:bg-blue-500 selection:text-white',

@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
-    calculateCommission,
     calculatePurchaseCharge,
     formatDuration,
     sumListPrices,
@@ -102,11 +101,7 @@ function defaultExtrasEnabled(o: OrderData): boolean {
     );
 }
 
-export default function ShowOrder({
-    order,
-    userPercentage,
-    companyName,
-}: ShowOrderProps) {
+export default function ShowOrder({ order, companyName }: ShowOrderProps) {
     const elapsed = useElapsedTime(order.started_at);
     const savedDraft = useRef(loadOrderDraft(order.id)).current;
     const serverDraft = orderToFormDraft(
@@ -142,26 +137,9 @@ export default function ShowOrder({
         [purchaseAmount, serviceCost],
     );
 
-    const commission = useMemo(
-        () => calculateCommission(serviceCost, userPercentage),
-        [serviceCost, userPercentage],
-    );
-
-    const userExtra = parseFloat(form.data.user_extra) || 0;
-    const clikioExtraAmount = parseFloat(form.data.clikio_extra) || 0;
-    const userTotalEarnings = commission.userCommission + userExtra;
-    const clikioTotalEarnings = commission.clikioCommission + clikioExtraAmount;
-
     const clientTotal = totalToCharge;
     const paymentMode = form.data.client_payment_mode;
     const isTransferMode = paymentMode === 'transfer';
-
-    const transferDiscount = useMemo(() => {
-        if (isTransferMode) {
-            return serviceCost;
-        }
-        return 0;
-    }, [isTransferMode, serviceCost]);
 
     const setPaymentMode = (mode: 'cash' | 'transfer') => {
         if (mode === 'transfer') {
@@ -174,10 +152,12 @@ export default function ShowOrder({
             return;
         }
 
+        // Al volver a efectivo se limpia el descuento que aplicó la transferencia
         form.setData({
             ...form.data,
             client_payment_mode: mode,
             cash_collected: '',
+            discount: '',
         });
     };
 
@@ -324,7 +304,7 @@ export default function ShowOrder({
                 ← Reparto
             </Link>
 
-            <div className="flex w-full flex-col gap-3 pb-36">
+            <div className="flex w-full flex-col gap-3">
                 <div className="flex items-center justify-between rounded-xl border border-sidebar-active/30 bg-white px-4 py-3 dark:bg-[#262626]">
                     <div className="flex items-center gap-2 text-sidebar-active">
                         <Clock className="h-5 w-5" />
@@ -356,7 +336,7 @@ export default function ShowOrder({
                             )}
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 gap-3 min-[500px]:grid-cols-3">
                             <div>
                                 <Label htmlFor="service_cost" className="mb-1 block text-xs text-slate-500">
                                     Servicio ($)
@@ -397,7 +377,7 @@ export default function ShowOrder({
                                     />
                                 )}
                             </div>
-                            <div>
+                            <div className="col-span-2 min-[500px]:col-span-1">
                                 <Label className="mb-1 block text-xs text-slate-500">Pago</Label>
                                 <div className="flex gap-2">
                                     {PAYMENT_MODES.map((mode) => (
@@ -418,11 +398,6 @@ export default function ShowOrder({
                                 </div>
                             </div>
                         </div>
-                        <p className="text-[11px] text-slate-500">
-                            Tu {userPercentage}% · Mi gan.: $
-                            {formatCurrency(commission.userCommission)} · {companyName}: $
-                            {formatCurrency(commission.clikioCommission)}
-                        </p>
                         {form.errors.service_cost && (
                             <p className="text-xs text-rose-600">{form.errors.service_cost}</p>
                         )}
@@ -533,7 +508,7 @@ export default function ShowOrder({
                                 </div>
                                 <div>
                                     <Label className="mb-1 block text-[10px] text-slate-500">
-                                        {isTransferMode ? 'Descuento (transf.)' : 'Descuento'}
+                                        Descuento
                                     </Label>
                                     <Input
                                         type="number"
@@ -550,19 +525,13 @@ export default function ShowOrder({
                     )}
                 </Card>
 
-                <div className="sticky bottom-0 z-10 -mx-1 rounded-t-2xl border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur dark:border-[#333] dark:bg-[#262626]/95">
+                <div className="sticky bottom-0 z-10 -mx-1 rounded-t-2xl border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur max-[499px]:bottom-16 dark:border-[#333] dark:bg-[#262626]/95">
                     <div className="flex items-center justify-between">
                         <span className="text-sm text-slate-500">Total al cliente</span>
                         <span className="text-2xl font-bold text-sidebar-active">
                             ${formatCurrency(clientTotal)}
                         </span>
                     </div>
-                    <p className="mt-1 text-center text-xs text-slate-500">
-                        Tú ${formatCurrency(userTotalEarnings)} · {companyName}{' '}
-                        ${formatCurrency(clikioTotalEarnings)}
-                        {transferDiscount > 0 &&
-                            ` · Desc. ${companyName} $${formatCurrency(transferDiscount)}`}
-                    </p>
                     {Object.keys(form.errors).length > 0 && (
                         <p className="mt-2 text-center text-xs text-rose-600">
                             {Object.values(form.errors)[0]}

@@ -13,6 +13,14 @@ class OpenCashSessionRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // Vacío significa iniciar la jornada con $0
+        if ($this->input('initial_amount') === null || $this->input('initial_amount') === '') {
+            $this->merge(['initial_amount' => 0]);
+        }
+    }
+
     public function rules(): array
     {
         return [

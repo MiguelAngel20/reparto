@@ -206,7 +206,7 @@ export default function RepartoIndex({
                                     type: 'number',
                                     min: 0,
                                     step: '0.01',
-                                    placeholder: '$2000.00',
+                                    placeholder: '$0.00 (opcional)',
                                     value: openForm.data.initial_amount,
                                     disabled: !canStartJornadaToday,
                                     onChange: (e) => {
@@ -286,23 +286,23 @@ export default function RepartoIndex({
                                 </div>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-2 gap-2">
+                            <div className="mt-4 grid grid-cols-1 gap-2 min-[350px]:grid-cols-2">
                                 <button
                                     type="button"
                                     onClick={startOrder}
                                     disabled={startOrderForm.processing}
-                                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-sidebar-active text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                                    className="inline-flex h-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-sidebar-active px-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:gap-2 sm:text-sm"
                                 >
-                                    <Package className="h-4 w-4" />
+                                    <Package className="h-4 w-4 shrink-0" />
                                     {startOrderForm.processing ? '...' : 'Nuevo pedido'}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={submitCloseCaja}
                                     disabled={closeForm.processing}
-                                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border-2 border-sidebar-active text-sm font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50"
+                                    className="inline-flex h-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border-2 border-sidebar-active px-2 text-xs font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50 sm:gap-2 sm:text-sm"
                                 >
-                                    <Scale className="h-4 w-4" />
+                                    <Scale className="h-4 w-4 shrink-0" />
                                     {closeForm.processing ? '...' : 'Finalizar jornada'}
                                 </button>
                             </div>

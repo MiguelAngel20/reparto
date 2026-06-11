@@ -6,9 +6,8 @@ export function validateOpenCashSession(data: {
     const errors: AuthErrors = {};
     const amount = data.initial_amount.trim();
 
-    if (!amount) {
-        errors.initial_amount = 'El monto inicial es obligatorio.';
-    } else if (Number(amount) < 0) {
+    // Vacío es válido: la jornada inicia con $0
+    if (amount && Number(amount) < 0) {
         errors.initial_amount = 'El monto inicial no puede ser negativo.';
     }
 
