@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Mail\LoginVerificationCodeMail;
 use App\Mail\RegisterVerificationMail;
+use App\Models\CashSession;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,7 +35,7 @@ class AuthController extends Controller
     public function showLoginForm(Request $request): Response|RedirectResponse
     {
         if (Auth::check()) {
-            return redirect()->route('dashboard');
+            return redirect($this->homeUrl($request->user()));
         }
 
         if ($this->hasPendingVerification($request)) {
@@ -82,7 +83,7 @@ class AuthController extends Controller
     public function showVerifyForm(Request $request): Response|RedirectResponse
     {
         if (Auth::check()) {
-            return redirect()->route('dashboard');
+            return redirect($this->homeUrl($request->user()));
         }
 
         if (! $this->hasPendingVerification($request)) {
@@ -158,7 +159,15 @@ class AuthController extends Controller
         Auth::login($user, $remember);
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'));
+        return redirect()->intended($this->homeUrl($user));
+    }
+
+    /** Con jornada abierta el destino por defecto es la jornada en curso; si no, el dashboard. */
+    private function homeUrl(User $user): string
+    {
+        return CashSession::openLiveForUser($user->id)
+            ? route('reparto.index')
+            : route('dashboard');
     }
 
     public function resendLoginCode(Request $request): RedirectResponse
@@ -201,7 +210,7 @@ class AuthController extends Controller
     public function showRegisterForm(Request $request): Response|RedirectResponse
     {
         if (Auth::check()) {
-            return redirect()->route('dashboard');
+            return redirect($this->homeUrl($request->user()));
         }
 
         return Inertia::render('Auth/Register');

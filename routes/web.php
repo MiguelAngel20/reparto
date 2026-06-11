@@ -10,12 +10,18 @@ use App\Http\Controllers\Reparto\RepartoController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\UserController;
+use App\Models\CashSession;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return auth()->check()
-        ? redirect()->route('dashboard')
-        : redirect()->route('login');
+    if (! auth()->check()) {
+        return redirect()->route('login');
+    }
+
+    // Con jornada abierta se entra directo a la pantalla de jornada en curso
+    return CashSession::openLiveForUser(auth()->id())
+        ? redirect()->route('reparto.index')
+        : redirect()->route('dashboard');
 });
 
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
