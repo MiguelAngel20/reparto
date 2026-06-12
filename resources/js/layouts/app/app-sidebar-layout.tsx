@@ -136,7 +136,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [], title, fu
                     )}
                 </div>
 
-                <AppFooter />
+                {!isPhone && <AppFooter />}
             </div>
         </AppShell>
     );
