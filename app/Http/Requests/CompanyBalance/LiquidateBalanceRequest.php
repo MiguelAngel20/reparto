@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Reparto;
+namespace App\Http\Requests\CompanyBalance;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CloseCashSessionRequest extends FormRequest
+class LiquidateBalanceRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -13,6 +13,8 @@ class CloseCashSessionRequest extends FormRequest
 
     public function rules(): array
     {
-        return [];
+        return [
+            'notes' => ['nullable', 'string', 'max:500'],
+        ];
     }
 }

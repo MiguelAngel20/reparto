@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\CompanyBalanceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Reparto\CashSessionController;
 use App\Http\Controllers\Reparto\DeliveryOrderController;
@@ -43,6 +44,12 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    Route::prefix('cuenta-empresa')->name('company-balance.')->group(function () {
+        Route::get('/', [CompanyBalanceController::class, 'index'])->name('index');
+        Route::post('/saldo', [CompanyBalanceController::class, 'storeEntry'])->name('entry.store');
+        Route::post('/liquidar', [CompanyBalanceController::class, 'liquidate'])->name('liquidate');
+    });
 
     Route::prefix('captura-manual')->name('manual-capture.')->group(function () {
         Route::get('/', [ManualCaptureController::class, 'index'])->name('index');

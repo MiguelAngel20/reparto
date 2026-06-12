@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Reparto;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reparto\OpenManualCaptureSessionRequest;
 use App\Models\CashSession;
+use App\Services\CompanyBalanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ManualCaptureSessionController extends Controller
 {
+    public function __construct(
+        private readonly CompanyBalanceService $companyBalance,
+    ) {}
     public function store(OpenManualCaptureSessionRequest $request): RedirectResponse
     {
         $user = $request->user();
@@ -51,6 +55,9 @@ class ManualCaptureSessionController extends Controller
             'status' => CashSession::STATUS_CLOSED,
             'ended_at' => now(),
         ]);
+
+        $session->refresh();
+        $this->companyBalance->applySessionSettlement($session);
 
         return redirect()
             ->route('manual-capture.index')

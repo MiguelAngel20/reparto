@@ -20,6 +20,7 @@ import {
     LayoutGrid,
     LogOut,
     Package,
+    Scale,
     Settings,
     X,
 } from 'lucide-react';
@@ -37,6 +38,7 @@ const allNavItems: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
     { title: 'Iniciar jornada', href: '/reparto', icon: Package },
     { title: 'Captura manual', href: '/captura-manual', icon: ClipboardList },
+    { title: 'Cuenta empresa', href: '/cuenta-empresa', icon: Scale },
 ];
 
 export function AppSidebar({ collapsed = false, narrow = false, asDrawer = false, onClose }: AppSidebarProps) {

@@ -35,50 +35,6 @@ export async function confirmAction(options: ConfirmOptions): Promise<boolean> {
     return result.isConfirmed;
 }
 
-export async function promptCloseCashSession(
-    expectedCash: number,
-    formatMoney: (value: number) => string,
-): Promise<{ confirmed: boolean; countedAmount: string }> {
-    const result = await Swal.fire({
-        ...defaultOptions,
-        title: 'Corte de caja',
-        html: `
-            <p class="text-sm text-slate-600 mb-3">
-                Cuenta todo el efectivo que tienes en caja (billetes y monedas) e ingrésalo abajo.
-            </p>
-            <p class="text-sm font-semibold text-slate-800">
-                Efectivo esperado según el sistema:
-                <span class="text-[#0085F3]">$${formatMoney(expectedCash)}</span>
-            </p>
-        `,
-        icon: 'question',
-        input: 'number',
-        inputAttributes: {
-            min: '0',
-            step: '0.01',
-            placeholder: '0.00',
-        },
-        inputLabel: 'Efectivo contado ($)',
-        showCancelButton: true,
-        confirmButtonText: 'Cerrar caja y guardar corte',
-        cancelButtonText: 'Seguir trabajando',
-        inputValidator: (value) => {
-            if (value === '' || value === null) {
-                return 'Indica cuánto efectivo contaste.';
-            }
-            if (Number(value) < 0) {
-                return 'El monto no puede ser negativo.';
-            }
-            return null;
-        },
-    });
-
-    return {
-        confirmed: result.isConfirmed,
-        countedAmount: result.isConfirmed ? String(result.value ?? '') : '',
-    };
-}
-
 export async function confirmFinalizeOrder(): Promise<boolean> {
     return confirmAction({
         title: '¿Finalizar pedido?',
@@ -96,6 +52,16 @@ export async function confirmCancelOrder(): Promise<boolean> {
         icon: 'warning',
         confirmText: 'Sí, cancelar',
         cancelText: 'Seguir en el pedido',
+    });
+}
+
+export async function confirmCloseCashSession(): Promise<boolean> {
+    return confirmAction({
+        title: '¿Finalizar jornada?',
+        text: 'Se cerrará la jornada en curso y no podrás registrar más pedidos hoy.',
+        icon: 'question',
+        confirmText: 'Sí, finalizar',
+        cancelText: 'Cancelar',
     });
 }
 

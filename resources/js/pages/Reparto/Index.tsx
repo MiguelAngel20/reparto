@@ -10,7 +10,7 @@ import {
     type SessionHistoryItem,
 } from '@/components/reparto/session-history-list';
 import { Package, Play, Scale, Wallet } from 'lucide-react';
-import { promptCloseCashSession } from '@/lib/sweetalert';
+import { confirmCloseCashSession } from '@/lib/sweetalert';
 import { useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 
@@ -79,7 +79,7 @@ export default function RepartoIndex({
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const openForm = useForm({ initial_amount: '', notes: '' });
-    const closeForm = useForm({ counted_amount: '' });
+    const closeForm = useForm({});
     const startOrderForm = useForm({});
 
     const sessionSummary = useMemo(() => {
@@ -156,15 +156,11 @@ export default function RepartoIndex({
     };
 
     const submitCloseCaja = async () => {
-        if (!openSession || !sessionSummary) return;
+        if (!openSession) return;
 
-        const { confirmed, countedAmount } = await promptCloseCashSession(
-            sessionSummary.expected,
-            formatCurrency,
-        );
+        const confirmed = await confirmCloseCashSession();
         if (!confirmed) return;
 
-        closeForm.setData('counted_amount', countedAmount);
         closeForm.post('/reparto/caja/cerrar', { preserveScroll: true });
     };
 

@@ -16,6 +16,7 @@ use Illuminate\Notifications\Notifiable;
     'password',
     'company_name',
     'percentage',
+    'company_balance',
     'role',
     'email_verified_at',
 ])]
@@ -60,6 +61,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'percentage' => 'decimal:2',
+            'company_balance' => 'decimal:2',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

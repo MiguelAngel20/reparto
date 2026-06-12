@@ -8,12 +8,17 @@ use App\Http\Requests\Reparto\OpenCashSessionRequest;
 use App\Models\CashSession;
 use App\Models\DeliveryOrder;
 use App\Services\CashSessionSummary;
+use App\Services\CompanyBalanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class CashSessionController extends Controller
 {
     use RepartoFormatter;
+
+    public function __construct(
+        private readonly CompanyBalanceService $companyBalance,
+    ) {}
 
     public function store(OpenCashSessionRequest $request): RedirectResponse
     {
@@ -61,33 +66,23 @@ class CashSessionController extends Controller
             return back()->with('error', 'Finaliza el pedido en curso antes de cerrar la caja.');
         }
 
-        $summary = CashSessionSummary::forSession($session);
-        $countedAmount = (float) $request->validated('counted_amount');
-        $expectedCash = $summary['expected_cash_in_box'];
-        $difference = round($countedAmount - $expectedCash, 2);
-
         $endedAt = now();
 
         $session->update([
             'status' => CashSession::STATUS_CLOSED,
             'ended_at' => $endedAt,
-            'counted_amount' => $countedAmount,
-            'cash_difference' => $difference,
+            'counted_amount' => null,
+            'cash_difference' => null,
         ]);
 
         $session->refresh();
+        $this->companyBalance->applySessionSettlement($session);
         $duration = $this->calculateWorkDuration($session->started_at, $session->ended_at);
         $durationLabel = $duration['formatted'] ?? '';
 
-        $differenceText = match (true) {
-            abs($difference) < 0.01 => 'Cuadre perfecto: el efectivo contado coincide con el esperado.',
-            $difference > 0 => 'Sobrante de $'.number_format($difference, 2).' (contaste más de lo esperado).',
-            default => 'Faltante de $'.number_format(abs($difference), 2).' (contaste menos de lo esperado).',
-        };
-
         $message = $durationLabel
-            ? "Caja cerrada ({$durationLabel}). {$differenceText}"
-            : "Caja cerrada. {$differenceText}";
+            ? "Jornada finalizada ({$durationLabel})."
+            : 'Jornada finalizada.';
 
         return redirect()->route('reparto.index')->with('success', $message);
     }

@@ -8,12 +8,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
-import { ClipboardList, LayoutGrid, LogOut, Package, Settings } from 'lucide-react';
+import { ClipboardList, LayoutGrid, LogOut, Package, Scale, Settings } from 'lucide-react';
 
 const navItems = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
     { title: 'Jornada', href: '/reparto', icon: Package },
     { title: 'Captura', href: '/captura-manual', icon: ClipboardList },
+    { title: 'Cuenta', href: '/cuenta-empresa', icon: Scale },
 ];
 
 /** Barra de navegación inferior tipo app móvil (se muestra en pantallas < 500px). */
@@ -35,7 +36,7 @@ export function AppBottomNav() {
             className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] dark:border-[#2b2b2b] dark:bg-[#232323]"
             aria-label="Navegación principal"
         >
-            <div className="grid h-16 grid-cols-4">
+            <div className="grid h-16 grid-cols-5">
                 {navItems.map((item) => {
                     const isActive = pathname.startsWith(item.href);
 
