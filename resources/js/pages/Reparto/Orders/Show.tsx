@@ -304,7 +304,7 @@ export default function ShowOrder({ order, companyName }: ShowOrderProps) {
                 ← Reparto
             </Link>
 
-            <div className="flex w-full flex-col gap-3">
+            <div className="flex w-full flex-col gap-3 max-[499px]:pb-28">
                 <div className="flex items-center justify-between rounded-xl border border-sidebar-active/30 bg-white px-4 py-3 dark:bg-[#262626]">
                     <div className="flex items-center gap-2 text-sidebar-active">
                         <Clock className="h-5 w-5" />
@@ -525,35 +525,47 @@ export default function ShowOrder({ order, companyName }: ShowOrderProps) {
                     )}
                 </Card>
 
-                <div className="sticky bottom-0 z-10 -mx-1 rounded-t-2xl border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur max-[499px]:bottom-16 dark:border-[#333] dark:bg-[#262626]/95">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">Total al cliente</span>
+                <div className="sticky bottom-0 z-10 -mx-1 rounded-t-2xl border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur max-[499px]:fixed max-[499px]:inset-x-0 max-[499px]:bottom-16 max-[499px]:mx-0 max-[499px]:rounded-t-lg max-[499px]:p-2 dark:border-[#333] dark:bg-[#262626]/95">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-slate-500">
+                            Total al cliente
+                        </span>
                         <span className="text-2xl font-bold text-sidebar-active">
                             ${formatCurrency(clientTotal)}
                         </span>
                     </div>
                     {Object.keys(form.errors).length > 0 && (
-                        <p className="mt-2 text-center text-xs text-rose-600">
+                        <p className="mt-2 text-center text-xs text-rose-600 max-[499px]:mt-1 max-[499px]:text-[10px]">
                             {Object.values(form.errors)[0]}
                         </p>
                     )}
-                    <div className="mt-3 grid gap-2">
+                    <div className="mt-3 grid gap-2 max-[499px]:mt-1.5 max-[499px]:grid-cols-2 max-[499px]:gap-1.5">
                         <button
                             type="button"
                             onClick={finalizeOrder}
                             disabled={form.processing}
-                            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50"
+                            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:gap-1 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
                         >
-                            <CheckCircle2 className="h-5 w-5" />
-                            {form.processing ? 'Guardando...' : 'Finalizar pedido'}
+                            <CheckCircle2 className="h-5 w-5 max-[499px]:h-3.5 max-[499px]:w-3.5" />
+                            <span className="max-[499px]:truncate">
+                                {form.processing ? '...' : (
+                                    <>
+                                        <span className="max-[499px]:hidden">Finalizar pedido</span>
+                                        <span className="hidden max-[499px]:inline">Finalizar</span>
+                                    </>
+                                )}
+                            </span>
                         </button>
                         <button
                             type="button"
                             onClick={cancelOrder}
                             disabled={form.processing}
-                            className="inline-flex h-10 w-full items-center justify-center text-sm text-rose-600 disabled:opacity-50"
+                            className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-rose-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
                         >
-                            Cancelar pedido
+                            <span className="max-[499px]:truncate">
+                                <span className="max-[499px]:hidden">Cancelar pedido</span>
+                                <span className="hidden max-[499px]:inline">Cancelar</span>
+                            </span>
                         </button>
                     </div>
                 </div>
