@@ -4,12 +4,12 @@ import { Card } from '@/components/ui';
 import { formatCurrency, cn } from '@/lib/utils';
 import { validateOpenCashSession } from '@/lib/reparto-validation';
 import { type BreadcrumbItem } from '@/types';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     SessionHistoryList,
     type SessionHistoryItem,
 } from '@/components/reparto/session-history-list';
-import { Package, Play, Scale, Wallet } from 'lucide-react';
+import { Package, Pencil, Play, Scale, Wallet } from 'lucide-react';
 import { confirmCloseCashSession } from '@/lib/sweetalert';
 import { useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -332,6 +332,7 @@ export default function RepartoIndex({
                                                 <th className="px-4 py-3 text-right">
                                                     Cobro al cliente
                                                 </th>
+                                                <th className="px-4 py-3 text-center">Acciones</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-[#333]">
@@ -373,6 +374,17 @@ export default function RepartoIndex({
                                                     <td className="px-4 py-3 text-right font-medium text-slate-800 dark:text-slate-100">
                                                         ${formatCurrency(row.client_charge)}
                                                     </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex justify-center">
+                                                            <Link
+                                                                href={`/reparto/pedidos/${row.id}/editar`}
+                                                                className="rounded p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
+                                                                title="Editar pedido"
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Link>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -412,6 +424,7 @@ export default function RepartoIndex({
                                                     $
                                                     {formatCurrency(orderTableTotals.client_charge)}
                                                 </td>
+                                                <td />
                                             </tr>
                                         </tfoot>
                                     </table>

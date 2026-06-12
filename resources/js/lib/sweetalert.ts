@@ -35,6 +35,16 @@ export async function confirmAction(options: ConfirmOptions): Promise<boolean> {
     return result.isConfirmed;
 }
 
+export async function confirmSaveCompletedOrder(): Promise<boolean> {
+    return confirmAction({
+        title: '¿Guardar cambios?',
+        text: 'Se actualizará este pedido en la jornada actual.',
+        icon: 'question',
+        confirmText: 'Sí, guardar',
+        cancelText: 'Cancelar',
+    });
+}
+
 export async function confirmFinalizeOrder(): Promise<boolean> {
     return confirmAction({
         title: '¿Finalizar pedido?',

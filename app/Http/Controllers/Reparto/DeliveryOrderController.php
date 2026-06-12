@@ -62,14 +62,24 @@ class DeliveryOrderController extends Controller
             return redirect()->route('reparto.index');
         }
 
-        $order->load('items');
-        $user = $request->user();
+        return $this->renderOrderForm($request, $order);
+    }
 
-        return Inertia::render('Reparto/Orders/Show', [
-            'order' => $this->formatOrder($order),
-            'userPercentage' => (float) $user->percentage,
-            'companyName' => $user->company_name ?? 'Clikio',
-        ]);
+    public function edit(Request $request, DeliveryOrder $order): Response|RedirectResponse
+    {
+        $this->authorizeOrder($request, $order);
+
+        if ($order->isInProgress()) {
+            return redirect()->route('reparto.orders.show', $order);
+        }
+
+        if (! $this->canEditCompletedOrder($request, $order)) {
+            return redirect()
+                ->route('reparto.index')
+                ->with('error', 'No puedes editar este pedido.');
+        }
+
+        return $this->renderOrderForm($request, $order, editingCompleted: true);
     }
 
     public function update(UpdateDeliveryOrderRequest $request, DeliveryOrder $order): RedirectResponse
@@ -83,6 +93,25 @@ class DeliveryOrderController extends Controller
         $this->applyOrderData($order, $request->validated());
 
         return back();
+    }
+
+    public function updateCompleted(
+        FinalizeDeliveryOrderRequest $request,
+        DeliveryOrder $order,
+    ): RedirectResponse {
+        $this->authorizeOrder($request, $order);
+
+        if (! $this->canEditCompletedOrder($request, $order)) {
+            return redirect()
+                ->route('reparto.index')
+                ->with('error', 'No puedes editar este pedido.');
+        }
+
+        $this->applyOrderData($order, $request->validated());
+
+        return redirect()
+            ->route('reparto.index')
+            ->with('success', 'Pedido actualizado.');
     }
 
     public function complete(FinalizeDeliveryOrderRequest $request, DeliveryOrder $order): RedirectResponse
@@ -253,6 +282,41 @@ class DeliveryOrderController extends Controller
     protected function authorizeOrder(Request $request, DeliveryOrder $order): void
     {
         abort_unless($order->user_id === $request->user()->id, 403);
+    }
+
+    protected function canEditCompletedOrder(Request $request, DeliveryOrder $order): bool
+    {
+        if ($order->status !== DeliveryOrder::STATUS_COMPLETED) {
+            return false;
+        }
+
+        $session = $order->cashSession;
+        if (! $session || ! $session->isOpen() || ! $session->isLive()) {
+            return false;
+        }
+
+        $activeOrder = DeliveryOrder::activeForUser($request->user()->id);
+        if ($activeOrder && $activeOrder->id !== $order->id) {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function renderOrderForm(
+        Request $request,
+        DeliveryOrder $order,
+        bool $editingCompleted = false,
+    ): Response {
+        $order->load('items');
+        $user = $request->user();
+
+        return Inertia::render('Reparto/Orders/Show', [
+            'order' => $this->formatOrder($order),
+            'userPercentage' => (float) $user->percentage,
+            'companyName' => $user->company_name ?? 'Clikio',
+            'isEditingCompleted' => $editingCompleted,
+        ]);
     }
 
     protected function formatDuration(int $seconds): string

@@ -67,7 +67,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/caja/cerrar', [CashSessionController::class, 'close'])->name('caja.close');
         Route::post('/pedidos/iniciar', [DeliveryOrderController::class, 'start'])->name('orders.start');
         Route::get('/pedidos/{order}', [DeliveryOrderController::class, 'show'])->name('orders.show');
+        Route::get('/pedidos/{order}/editar', [DeliveryOrderController::class, 'edit'])->name('orders.edit');
         Route::put('/pedidos/{order}', [DeliveryOrderController::class, 'update'])->name('orders.update');
+        Route::put('/pedidos/{order}/actualizar', [DeliveryOrderController::class, 'updateCompleted'])->name('orders.update-completed');
         Route::post('/pedidos/{order}/finalizar', [DeliveryOrderController::class, 'complete'])->name('orders.complete');
         Route::post('/pedidos/{order}/cancelar', [DeliveryOrderController::class, 'cancel'])->name('orders.cancel');
     });

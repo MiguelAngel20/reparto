@@ -8,7 +8,7 @@ import {
     formatDuration,
     sumListPrices,
 } from '@/lib/delivery-commission';
-import { confirmCancelOrder, confirmFinalizeOrder } from '@/lib/sweetalert';
+import { confirmCancelOrder, confirmFinalizeOrder, confirmSaveCompletedOrder } from '@/lib/sweetalert';
 import { validateActiveOrder } from '@/lib/reparto-validation';
 import {
     clearOrderDraft,
@@ -64,6 +64,8 @@ type OrderData = {
     box_adjustment: number | null;
     notes: string | null;
     started_at: string;
+    duration_seconds?: number | null;
+    completed_at_formatted?: string | null;
     items: OrderItem[];
 };
 
@@ -71,6 +73,7 @@ interface ShowOrderProps {
     order: OrderData;
     userPercentage: number;
     companyName: string;
+    isEditingCompleted?: boolean;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -101,9 +104,15 @@ function defaultExtrasEnabled(o: OrderData): boolean {
     );
 }
 
-export default function ShowOrder({ order, companyName }: ShowOrderProps) {
-    const elapsed = useElapsedTime(order.started_at);
-    const savedDraft = useRef(loadOrderDraft(order.id)).current;
+export default function ShowOrder({
+    order,
+    companyName,
+    isEditingCompleted = false,
+}: ShowOrderProps) {
+    const elapsed = useElapsedTime(isEditingCompleted ? null : order.started_at);
+    const savedDraft = useRef(
+        isEditingCompleted ? null : loadOrderDraft(order.id),
+    ).current;
     const serverDraft = orderToFormDraft(
         order,
         defaultExtrasEnabled(order),
@@ -225,12 +234,16 @@ export default function ShowOrder({ order, companyName }: ShowOrderProps) {
     }, [form.data, extrasEnabled, listOpen]);
 
     useEffect(() => {
+        if (isEditingCompleted) {
+            return;
+        }
+
         const timer = window.setTimeout(() => {
             saveOrderDraft(order.id, buildLocalDraft());
         }, 400);
 
         return () => window.clearTimeout(timer);
-    }, [order.id, buildLocalDraft]);
+    }, [order.id, buildLocalDraft, isEditingCompleted]);
 
     const inferOrderType = (): 'cash_out' | 'service_only' => {
         const spent = hasListPrices ? listTotal : parseFloat(form.data.cash_spent) || 0;
@@ -253,6 +266,38 @@ export default function ShowOrder({ order, companyName }: ShowOrderProps) {
             items: form.data.items.filter((i) => i.description.trim() !== ''),
         };
     }, [form.data, hasListPrices, listTotal]);
+
+    const saveCompletedOrder = async () => {
+        form.clearErrors();
+        const clientErrors = validateActiveOrder({
+            name: form.data.name,
+            service_cost: form.data.service_cost,
+            client_payment_mode: form.data.client_payment_mode,
+        });
+        Object.entries(clientErrors).forEach(([key, message]) => {
+            form.setError(key as 'name' | 'service_cost' | 'cash_spent', message);
+        });
+        if (Object.keys(clientErrors).length > 0) {
+            toast.error(Object.values(clientErrors)[0]);
+            return;
+        }
+
+        const confirmed = await confirmSaveCompletedOrder();
+        if (!confirmed) return;
+
+        form.transform(() => buildFinalizePayload());
+        form.put(`/reparto/pedidos/${order.id}/actualizar`, {
+            onSuccess: () => clearOrderDraft(order.id),
+            onError: (errors: Record<string, string>) => {
+                const first = Object.values(errors).find(
+                    (msg) => typeof msg === 'string',
+                );
+                toast.error(
+                    first ?? 'No se pudo actualizar el pedido. Revisa los datos.',
+                );
+            },
+        });
+    };
 
     const finalizeOrder = async () => {
         form.clearErrors();
@@ -293,9 +338,11 @@ export default function ShowOrder({ order, companyName }: ShowOrderProps) {
         form.post(`/reparto/pedidos/${order.id}/cancelar`);
     };
 
+    const pageTitle = isEditingCompleted ? 'Editar pedido' : 'Pedido en curso';
+
     return (
-        <AppLayout breadcrumbs={breadcrumbs} title="Pedido en curso">
-            <Head title="Pedido en curso" />
+        <AppLayout breadcrumbs={breadcrumbs} title={pageTitle}>
+            <Head title={pageTitle} />
 
             <Link
                 href="/reparto"
@@ -309,10 +356,18 @@ export default function ShowOrder({ order, companyName }: ShowOrderProps) {
                     <div className="flex items-center gap-2 text-sidebar-active">
                         <Clock className="h-5 w-5" />
                         <span className="font-mono text-2xl font-bold text-slate-900 dark:text-white">
-                            {formatDuration(elapsed)}
+                            {isEditingCompleted
+                                ? formatDuration(order.duration_seconds ?? 0)
+                                : formatDuration(elapsed)}
                         </span>
                     </div>
-                    <p className="text-xs text-slate-500">En curso</p>
+                    <p className="text-xs text-slate-500">
+                        {isEditingCompleted
+                            ? order.completed_at_formatted
+                                ? `Finalizado ${order.completed_at_formatted}`
+                                : 'Finalizado'
+                            : 'En curso'}
+                    </p>
                 </div>
 
                 <Card className={cardClass}>
@@ -540,33 +595,62 @@ export default function ShowOrder({ order, companyName }: ShowOrderProps) {
                         </p>
                     )}
                     <div className="mt-3 grid gap-2 max-[499px]:mt-1.5 max-[499px]:grid-cols-2 max-[499px]:gap-1.5">
-                        <button
-                            type="button"
-                            onClick={finalizeOrder}
-                            disabled={form.processing}
-                            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:gap-1 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
-                        >
-                            <CheckCircle2 className="h-5 w-5 max-[499px]:h-3.5 max-[499px]:w-3.5" />
-                            <span className="max-[499px]:truncate">
-                                {form.processing ? '...' : (
-                                    <>
-                                        <span className="max-[499px]:hidden">Finalizar pedido</span>
-                                        <span className="hidden max-[499px]:inline">Finalizar</span>
-                                    </>
-                                )}
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={cancelOrder}
-                            disabled={form.processing}
-                            className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-rose-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
-                        >
-                            <span className="max-[499px]:truncate">
-                                <span className="max-[499px]:hidden">Cancelar pedido</span>
-                                <span className="hidden max-[499px]:inline">Cancelar</span>
-                            </span>
-                        </button>
+                        {isEditingCompleted ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={saveCompletedOrder}
+                                    disabled={form.processing}
+                                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:gap-1 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
+                                >
+                                    <CheckCircle2 className="h-5 w-5 max-[499px]:h-3.5 max-[499px]:w-3.5" />
+                                    <span className="max-[499px]:truncate">
+                                        {form.processing ? '...' : (
+                                            <>
+                                                <span className="max-[499px]:hidden">Guardar cambios</span>
+                                                <span className="hidden max-[499px]:inline">Guardar</span>
+                                            </>
+                                        )}
+                                    </span>
+                                </button>
+                                <Link
+                                    href="/reparto"
+                                    className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 dark:border-[#3a3a3a] dark:text-slate-200 max-[499px]:h-8 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
+                                >
+                                    Volver
+                                </Link>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={finalizeOrder}
+                                    disabled={form.processing}
+                                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:gap-1 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
+                                >
+                                    <CheckCircle2 className="h-5 w-5 max-[499px]:h-3.5 max-[499px]:w-3.5" />
+                                    <span className="max-[499px]:truncate">
+                                        {form.processing ? '...' : (
+                                            <>
+                                                <span className="max-[499px]:hidden">Finalizar pedido</span>
+                                                <span className="hidden max-[499px]:inline">Finalizar</span>
+                                            </>
+                                        )}
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={cancelOrder}
+                                    disabled={form.processing}
+                                    className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-rose-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
+                                >
+                                    <span className="max-[499px]:truncate">
+                                        <span className="max-[499px]:hidden">Cancelar pedido</span>
+                                        <span className="hidden max-[499px]:inline">Cancelar</span>
+                                    </span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
