@@ -174,6 +174,22 @@ trait RepartoFormatter
         return $data;
     }
 
+    /**
+     * @return array{id: int, name: string, label: string, started_at: ?string, is_current: bool}
+     */
+    protected function formatActiveOrderSummary(DeliveryOrder $order, ?int $currentOrderId = null): array
+    {
+        $name = trim((string) $order->name);
+
+        return [
+            'id' => $order->id,
+            'name' => $name,
+            'label' => $name !== '' ? $name : 'Sin nombre',
+            'started_at' => $order->started_at?->toIso8601String(),
+            'is_current' => $currentOrderId !== null && $order->id === $currentOrderId,
+        ];
+    }
+
     protected function formatSessionWithSummary(CashSession $session): array
     {
         $summary = CashSessionSummary::forSession($session);

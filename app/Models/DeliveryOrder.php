@@ -122,4 +122,23 @@ class DeliveryOrder extends Model
             ->latest('started_at')
             ->first();
     }
+
+    /** @return \Illuminate\Database\Eloquent\Collection<int, self> */
+    public static function activeOrdersForUser(int $userId)
+    {
+        return self::query()
+            ->where('user_id', $userId)
+            ->where('status', self::STATUS_IN_PROGRESS)
+            ->orderBy('started_at')
+            ->orderBy('id')
+            ->get();
+    }
+
+    public static function hasActiveOrdersForUser(int $userId): bool
+    {
+        return self::query()
+            ->where('user_id', $userId)
+            ->where('status', self::STATUS_IN_PROGRESS)
+            ->exists();
+    }
 }

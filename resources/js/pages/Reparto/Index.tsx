@@ -9,6 +9,10 @@ import {
     SessionHistoryList,
     type SessionHistoryItem,
 } from '@/components/reparto/session-history-list';
+import {
+    ActiveOrdersBar,
+    type ActiveOrderSummary,
+} from '@/components/reparto/active-orders-bar';
 import { Package, Pencil, Play, Scale, Wallet } from 'lucide-react';
 import { confirmCloseCashSession } from '@/lib/sweetalert';
 import { useEffect, useMemo } from 'react';
@@ -50,6 +54,7 @@ type CashSessionData = SessionHistoryItem & {
 interface RepartoIndexProps {
     openSession: CashSessionData | null;
     sessionOrders: SessionOrderRow[];
+    activeOrders: ActiveOrderSummary[];
     recentSessions: CashSessionData[];
     canStartJornadaToday: boolean;
     todayDateFormatted: string;
@@ -69,6 +74,7 @@ const cardClass =
 export default function RepartoIndex({
     openSession,
     sessionOrders,
+    activeOrders,
     recentSessions,
     canStartJornadaToday,
     todayDateFormatted,
@@ -303,6 +309,10 @@ export default function RepartoIndex({
                                 </button>
                             </div>
                         </Card>
+
+                        {activeOrders.length > 0 && (
+                            <ActiveOrdersBar orders={activeOrders} />
+                        )}
 
                         <Card className={`${cardClass} p-4 sm:p-5`}>
                             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">

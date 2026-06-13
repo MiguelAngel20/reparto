@@ -22,10 +22,6 @@ class DeliveryOrderController extends Controller
     {
         $user = $request->user();
 
-        if (DeliveryOrder::activeForUser($user->id)) {
-            return redirect()->route('reparto.orders.show', DeliveryOrder::activeForUser($user->id));
-        }
-
         $session = CashSession::openLiveForUser($user->id);
         if (! $session) {
             return redirect()->route('reparto.index')->with('error', 'Abre una caja antes de iniciar un pedido.');
@@ -135,9 +131,22 @@ class DeliveryOrderController extends Controller
             'duration_seconds' => $durationSeconds,
         ]);
 
-        return redirect()
-            ->route('reparto.index')
-            ->with('success', 'Pedido finalizado. Tiempo: '.$this->formatDuration($durationSeconds));
+        return $this->redirectAfterClosingOrder(
+            $request->user()->id,
+            $this->finalizeSuccessMessage($request->user()->id, $durationSeconds),
+        );
+    }
+
+    protected function finalizeSuccessMessage(int $userId, int $durationSeconds): string
+    {
+        $remaining = DeliveryOrder::activeOrdersForUser($userId)->count();
+        $timeLabel = $this->formatDuration($durationSeconds);
+
+        if ($remaining > 0) {
+            return "Pedido finalizado ({$timeLabel}). Siguiente pedido en curso.";
+        }
+
+        return "Pedido finalizado. Tiempo: {$timeLabel}";
     }
 
     public function cancel(Request $request, DeliveryOrder $order): RedirectResponse
@@ -150,7 +159,27 @@ class DeliveryOrderController extends Controller
 
         $order->delete();
 
-        return redirect()->route('reparto.index')->with('success', 'Pedido cancelado.');
+        $remaining = DeliveryOrder::activeOrdersForUser($request->user()->id)->count();
+        $message = $remaining > 0
+            ? 'Pedido cancelado. Siguiente pedido en curso.'
+            : 'Pedido cancelado.';
+
+        return $this->redirectAfterClosingOrder($request->user()->id, $message);
+    }
+
+    protected function redirectAfterClosingOrder(int $userId, string $successMessage): RedirectResponse
+    {
+        $nextOrder = DeliveryOrder::activeOrdersForUser($userId)->first();
+
+        if ($nextOrder) {
+            return redirect()
+                ->route('reparto.orders.show', $nextOrder)
+                ->with('success', $successMessage);
+        }
+
+        return redirect()
+            ->route('reparto.index')
+            ->with('success', $successMessage);
     }
 
     protected function applyOrderData(DeliveryOrder $order, array $validated): void
@@ -295,11 +324,6 @@ class DeliveryOrderController extends Controller
             return false;
         }
 
-        $activeOrder = DeliveryOrder::activeForUser($request->user()->id);
-        if ($activeOrder && $activeOrder->id !== $order->id) {
-            return false;
-        }
-
         return true;
     }
 
@@ -311,11 +335,20 @@ class DeliveryOrderController extends Controller
         $order->load('items');
         $user = $request->user();
 
+        $activeOrders = DeliveryOrder::activeOrdersForUser($user->id)
+            ->map(fn ($active) => $this->formatActiveOrderSummary(
+                $active,
+                $editingCompleted ? null : $order->id,
+            ))
+            ->values()
+            ->all();
+
         return Inertia::render('Reparto/Orders/Show', [
             'order' => $this->formatOrder($order),
             'userPercentage' => (float) $user->percentage,
             'companyName' => $user->company_name ?? 'Clikio',
             'isEditingCompleted' => $editingCompleted,
+            'activeOrders' => $activeOrders,
         ]);
     }
 

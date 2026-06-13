@@ -125,3 +125,22 @@ export function inferListOpenFromDraft(draft: OrderFormDraft, order: OrderSnapsh
     }
     return order.items.length > 0 || (order.cash_spent ?? 0) > 0;
 }
+
+export function draftHasContent(draft: OrderFormDraft): boolean {
+    const serviceCost = parseFloat(draft.service_cost) || 0;
+
+    return (
+        draft.name.trim() !== '' ||
+        serviceCost > 0 && serviceCost !== 60 ||
+        draft.cash_spent.trim() !== '' ||
+        draft.items.some(
+            (item) => item.description.trim() !== '' || parseFloat(item.price) > 0,
+        ) ||
+        draft.user_extra.trim() !== '' ||
+        draft.clikio_extra.trim() !== '' ||
+        draft.discount.trim() !== '' ||
+        draft.notes.trim() !== '' ||
+        draft.client_payment_mode === 'transfer' ||
+        draft.extras_enabled
+    );
+}

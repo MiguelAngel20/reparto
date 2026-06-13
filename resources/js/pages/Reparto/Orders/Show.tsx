@@ -13,6 +13,7 @@ import { validateActiveOrder } from '@/lib/reparto-validation';
 import {
     clearOrderDraft,
     draftToFormData,
+    draftHasContent,
     inferExtrasEnabledFromDraft,
     inferListOpenFromDraft,
     loadOrderDraft,
@@ -22,8 +23,12 @@ import {
 } from '@/lib/reparto-order-draft';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
+import {
+    ActiveOrdersBar,
+    type ActiveOrderSummary,
+} from '@/components/reparto/active-orders-bar';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     Collapsible,
     CollapsibleContent,
@@ -74,6 +79,7 @@ interface ShowOrderProps {
     userPercentage: number;
     companyName: string;
     isEditingCompleted?: boolean;
+    activeOrders?: ActiveOrderSummary[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -104,15 +110,24 @@ function defaultExtrasEnabled(o: OrderData): boolean {
     );
 }
 
-export default function ShowOrder({
+export default function ShowOrder(props: ShowOrderProps) {
+    return <ShowOrderPage key={props.order.id} {...props} />;
+}
+
+function ShowOrderPage({
     order,
     companyName,
     isEditingCompleted = false,
+    activeOrders = [],
 }: ShowOrderProps) {
+    const page = usePage();
+    const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const elapsed = useElapsedTime(isEditingCompleted ? null : order.started_at);
-    const savedDraft = useRef(
+    const loadedDraft = useRef(
         isEditingCompleted ? null : loadOrderDraft(order.id),
     ).current;
+    const savedDraft =
+        loadedDraft && draftHasContent(loadedDraft) ? loadedDraft : null;
     const serverDraft = orderToFormDraft(
         order,
         defaultExtrasEnabled(order),
@@ -127,6 +142,11 @@ export default function ShowOrder({
     );
 
     const form = useForm(savedDraft ? draftToFormData(savedDraft) : draftToFormData(serverDraft));
+
+    useEffect(() => {
+        if (flash?.success) toast.success(flash.success);
+        if (flash?.error) toast.error(flash.error);
+    }, [flash?.success, flash?.error]);
 
     const serviceCost = parseFloat(form.data.service_cost) || 0;
     const listTotal = useMemo(
@@ -233,16 +253,29 @@ export default function ShowOrder({
         };
     }, [form.data, extrasEnabled, listOpen]);
 
+    const buildLocalDraftRef = useRef(buildLocalDraft);
+    buildLocalDraftRef.current = buildLocalDraft;
+
     useEffect(() => {
         if (isEditingCompleted) {
             return;
         }
 
+        const orderId = order.id;
         const timer = window.setTimeout(() => {
-            saveOrderDraft(order.id, buildLocalDraft());
-        }, 400);
+            const draft = buildLocalDraftRef.current();
+            if (draftHasContent(draft)) {
+                saveOrderDraft(orderId, draft);
+            }
+        }, 200);
 
-        return () => window.clearTimeout(timer);
+        return () => {
+            window.clearTimeout(timer);
+            const draft = buildLocalDraftRef.current();
+            if (draftHasContent(draft)) {
+                saveOrderDraft(orderId, draft);
+            }
+        };
     }, [order.id, buildLocalDraft, isEditingCompleted]);
 
     const inferOrderType = (): 'cash_out' | 'service_only' => {
@@ -352,6 +385,14 @@ export default function ShowOrder({
             </Link>
 
             <div className="flex w-full flex-col gap-3 max-[499px]:pb-28">
+                {!isEditingCompleted && activeOrders.length > 0 && (
+                    <ActiveOrdersBar
+                        orders={activeOrders}
+                        currentOrderId={order.id}
+                        compact
+                    />
+                )}
+
                 <div className="flex items-center justify-between rounded-xl border border-sidebar-active/30 bg-white px-4 py-3 dark:bg-[#262626]">
                     <div className="flex items-center gap-2 text-sidebar-active">
                         <Clock className="h-5 w-5" />
@@ -366,7 +407,9 @@ export default function ShowOrder({
                             ? order.completed_at_formatted
                                 ? `Finalizado ${order.completed_at_formatted}`
                                 : 'Finalizado'
-                            : 'En curso'}
+                            : activeOrders.length > 1
+                              ? `Pedido ${activeOrders.findIndex((o) => o.id === order.id) + 1} de ${activeOrders.length}`
+                              : 'En curso'}
                     </p>
                 </div>
 

@@ -28,8 +28,8 @@ class CashSessionController extends Controller
             return back()->with('error', 'Ya tienes una caja abierta.');
         }
 
-        if (DeliveryOrder::activeForUser($user->id)) {
-            return back()->with('error', 'Finaliza el pedido en curso antes de abrir otra caja.');
+        if (DeliveryOrder::hasActiveOrdersForUser($user->id)) {
+            return back()->with('error', 'Finaliza los pedidos en curso antes de abrir otra caja.');
         }
 
         $today = now()->toDateString();
@@ -62,8 +62,8 @@ class CashSessionController extends Controller
             return back()->with('error', 'No tienes una caja abierta.');
         }
 
-        if (DeliveryOrder::activeForUser($user->id)) {
-            return back()->with('error', 'Finaliza el pedido en curso antes de cerrar la caja.');
+        if (DeliveryOrder::hasActiveOrdersForUser($user->id)) {
+            return back()->with('error', 'Finaliza todos los pedidos en curso antes de cerrar la jornada.');
         }
 
         $endedAt = now();

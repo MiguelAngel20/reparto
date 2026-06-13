@@ -19,11 +19,6 @@ class RepartoController extends Controller
     {
         $user = $request->user();
 
-        $activeOrder = DeliveryOrder::activeForUser($user->id);
-        if ($activeOrder) {
-            return redirect()->route('reparto.orders.show', $activeOrder);
-        }
-
         $openSession = CashSession::openLiveForUser($user->id);
 
         $recentSessions = CashSession::query()
@@ -64,9 +59,15 @@ class RepartoController extends Controller
 
         $today = now()->toDateString();
 
+        $activeOrders = DeliveryOrder::activeOrdersForUser($user->id)
+            ->map(fn ($order) => $this->formatActiveOrderSummary($order))
+            ->values()
+            ->all();
+
         return Inertia::render('Reparto/Index', [
             'openSession' => $openSessionData,
             'sessionOrders' => $sessionOrders,
+            'activeOrders' => $activeOrders,
             'recentSessions' => $recentSessions,
             'canStartJornadaToday' => ! CashSession::dayRegisteredForUser($user->id, $today),
             'todayDateFormatted' => now()->format('d/m/Y'),

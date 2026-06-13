@@ -1,13 +1,13 @@
 import AppLayout from '@/layouts/app-layout';
-import { Card } from '@/components/ui';
+import { Card, Pagination } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { confirmAction } from '@/lib/sweetalert';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
-import { Head, useForm, usePage } from '@inertiajs/react';
-import { Scale } from 'lucide-react';
-import { useEffect } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Pencil, Scale, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 type BalanceDisplay = {
@@ -20,21 +20,38 @@ type Movement = {
     id: number;
     type: string;
     type_label: string;
+    editable: boolean;
+    direction: 'company_owes' | 'user_owes' | null;
+    amount_absolute: number | null;
     amount: number;
     amount_label: string;
+    favor: 'user' | 'company' | 'neutral';
     signed_label: string;
     balance_after: number;
     balance_after_label: string;
     notes: string | null;
-    created_at: string;
+    display_date: string | null;
+};
+
+type PaginatedMovements = {
+    data: Movement[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
 };
 
 interface CompanyBalanceIndexProps {
     companyName: string;
     balance: number;
     balanceDisplay: BalanceDisplay;
-    movements: Movement[];
+    movements: PaginatedMovements;
+    perPageOptions: number[];
 }
+
+const PER_PAGE_OPTIONS = [5, 15, 25, 50] as const;
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -54,14 +71,53 @@ function toneClass(tone: BalanceDisplay['tone']): string {
     return 'text-slate-700 dark:text-slate-200';
 }
 
+function FavorBadge({
+    label,
+    favor,
+}: {
+    label: string;
+    favor: Movement['favor'];
+}) {
+    if (favor === 'neutral') {
+        return <span className="text-[10px] text-slate-500">{label}</span>;
+    }
+
+    const isUser = favor === 'user';
+
+    return (
+        <span
+            className={cn(
+                'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                isUser
+                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+            )}
+        >
+            {label}
+        </span>
+    );
+}
+
+function amountToneClass(favor: Movement['favor']): string {
+    if (favor === 'user') {
+        return 'text-violet-600 dark:text-violet-400';
+    }
+    if (favor === 'company') {
+        return 'text-amber-600 dark:text-amber-400';
+    }
+    return 'text-slate-600 dark:text-slate-300';
+}
+
 export default function CompanyBalanceIndex({
     companyName,
     balance,
     balanceDisplay,
     movements,
+    perPageOptions = [...PER_PAGE_OPTIONS],
 }: CompanyBalanceIndexProps) {
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
+    const [editingId, setEditingId] = useState<number | null>(null);
 
     const entryForm = useForm({
         direction: 'company_owes' as 'company_owes' | 'user_owes',
@@ -82,10 +138,41 @@ export default function CompanyBalanceIndex({
 
     const submitEntry = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (editingId) {
+            entryForm.put(`/cuenta-empresa/saldo/${editingId}`, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    entryForm.reset();
+                    setEditingId(null);
+                },
+            });
+            return;
+        }
+
         entryForm.post('/cuenta-empresa/saldo', {
             preserveScroll: true,
             onSuccess: () => entryForm.reset('amount', 'notes'),
         });
+    };
+
+    const startEditing = (movement: Movement) => {
+        setEditingId(movement.id);
+        entryForm.setData({
+            direction: movement.direction ?? 'user_owes',
+            amount:
+                movement.amount_absolute !== null
+                    ? String(movement.amount_absolute)
+                    : '',
+            notes: movement.notes ?? '',
+        });
+        entryForm.clearErrors();
+    };
+
+    const cancelEditing = () => {
+        setEditingId(null);
+        entryForm.reset();
+        entryForm.clearErrors();
     };
 
     const submitLiquidation = async () => {
@@ -101,6 +188,25 @@ export default function CompanyBalanceIndex({
         if (!confirmed) return;
 
         liquidateForm.post('/cuenta-empresa/liquidar', { preserveScroll: true });
+    };
+
+    const visitMovements = (params: { page?: number; per_page?: number }) => {
+        router.get(
+            '/cuenta-empresa',
+            {
+                page: params.page ?? movements.current_page,
+                per_page: params.per_page ?? movements.per_page,
+            },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
+
+    const handlePerPageChange = (perPage: number) => {
+        visitMovements({ page: 1, per_page: perPage });
+    };
+
+    const handlePageChange = (page: number) => {
+        visitMovements({ page });
     };
 
     return (
@@ -122,8 +228,9 @@ export default function CompanyBalanceIndex({
                                 {balanceDisplay.label}
                             </p>
                             <p className="mt-2 text-xs text-slate-500">
-                                Cada jornada cerrada suma o resta según el cuadre del día. Aquí registras
-                                saldos iniciales y liquidaciones.
+                                Cada jornada cerrada con fecha igual o posterior a tu saldo registrado
+                                suma o resta según el cuadre del día. Las capturas manuales de fechas
+                                anteriores solo quedan como referencia y no afectan esta cuenta.
                             </p>
                         </div>
                     </div>
@@ -141,13 +248,28 @@ export default function CompanyBalanceIndex({
                 </Card>
 
                 <Card className={cardClass}>
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                        Registrar nuevo saldo
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Usa esto cuando traes dinero de la empresa o cuando {companyName} ya te debe
-                        dinero antes de cerrar jornadas.
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                                {editingId ? 'Editar saldo registrado' : 'Registrar nuevo saldo'}
+                            </h2>
+                            <p className="mt-1 text-sm text-slate-500">
+                                {editingId
+                                    ? 'Al guardar, el saldo se recalcula con todas las jornadas cerradas después de este registro.'
+                                    : `Usa esto cuando traes dinero de la empresa o cuando ${companyName} ya te debe dinero antes de cerrar jornadas.`}
+                            </p>
+                        </div>
+                        {editingId && (
+                            <button
+                                type="button"
+                                onClick={cancelEditing}
+                                className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
+                                title="Cancelar edición"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
 
                     <form onSubmit={submitEntry} noValidate className="mt-4 space-y-4">
                         <div className="grid gap-2 sm:grid-cols-2">
@@ -213,25 +335,36 @@ export default function CompanyBalanceIndex({
                         <button
                             type="submit"
                             disabled={entryForm.processing}
-                            className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-sidebar-active text-sm font-semibold text-white disabled:opacity-50 sm:w-auto sm:px-6"
+                            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-sidebar-active text-sm font-semibold text-white disabled:opacity-50 sm:w-auto sm:px-6"
                         >
-                            {entryForm.processing ? 'Guardando...' : 'Registrar saldo'}
+                            {entryForm.processing
+                                ? 'Guardando...'
+                                : editingId
+                                  ? 'Guardar cambios'
+                                  : 'Registrar saldo'}
                         </button>
                     </form>
                 </Card>
 
                 <Card className={cardClass}>
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                        Historial de movimientos
-                    </h2>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                            Historial de movimientos
+                        </h2>
+                        {movements.total > 0 && (
+                            <p className="text-xs text-slate-500">
+                                {movements.total} movimiento{movements.total !== 1 ? 's' : ''}
+                            </p>
+                        )}
+                    </div>
 
-                    {movements.length === 0 ? (
+                    {movements.data.length === 0 ? (
                         <p className="mt-4 rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-[#3a3a3a]">
                             Aún no hay movimientos. El saldo inicia en cero.
                         </p>
                     ) : (
                         <ul className="mt-4 space-y-2">
-                            {movements.map((movement) => (
+                            {movements.data.map((movement) => (
                                 <li
                                     key={movement.id}
                                     className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]/50"
@@ -242,7 +375,7 @@ export default function CompanyBalanceIndex({
                                                 {movement.type_label}
                                             </p>
                                             <p className="mt-0.5 text-xs text-slate-500">
-                                                {movement.created_at}
+                                                {movement.display_date}
                                             </p>
                                             {movement.notes && (
                                                 <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
@@ -250,30 +383,82 @@ export default function CompanyBalanceIndex({
                                                 </p>
                                             )}
                                         </div>
-                                        <div className="shrink-0 text-right">
-                                            <p
-                                                className={cn(
-                                                    'text-sm font-semibold tabular-nums',
-                                                    movement.amount > 0.01
-                                                        ? 'text-amber-600'
-                                                        : movement.amount < -0.01
-                                                          ? 'text-violet-600'
-                                                          : 'text-slate-600',
-                                                )}
-                                            >
-                                                {movement.amount_label}
-                                            </p>
-                                            <p className="mt-0.5 text-[10px] text-slate-500">
-                                                {movement.signed_label}
-                                            </p>
-                                            <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                                Saldo: {movement.balance_after_label}
-                                            </p>
+                                        <div className="flex shrink-0 items-start gap-2">
+                                            <div className="text-right">
+                                                <p
+                                                    className={cn(
+                                                        'text-sm font-semibold tabular-nums',
+                                                        amountToneClass(movement.favor),
+                                                    )}
+                                                >
+                                                    {movement.amount_label}
+                                                </p>
+                                                <div className="mt-1 flex justify-end">
+                                                    <FavorBadge
+                                                        label={movement.signed_label}
+                                                        favor={movement.favor}
+                                                    />
+                                                </div>
+                                                <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                                    Saldo: {movement.balance_after_label}
+                                                </p>
+                                            </div>
+                                            {movement.editable && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => startEditing(movement)}
+                                                    className={cn(
+                                                        'rounded p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]',
+                                                        editingId === movement.id &&
+                                                            'bg-sidebar-active/10 text-sidebar-active',
+                                                    )}
+                                                    title="Editar saldo"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </li>
                             ))}
                         </ul>
+                    )}
+
+                    {movements.total > 0 && (
+                        <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-[#3a3a3a] sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                                <label htmlFor="movements-per-page" className="shrink-0">
+                                    Mostrar
+                                </label>
+                                <select
+                                    id="movements-per-page"
+                                    value={movements.per_page}
+                                    onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                                    className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-slate-200"
+                                >
+                                    {perPageOptions.map((option) => (
+                                        <option key={option} value={option}>
+                                            {option}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className="shrink-0">por página</span>
+                                {movements.from !== null && movements.to !== null && (
+                                    <span className="text-xs sm:ml-1">
+                                        ({movements.from}–{movements.to} de {movements.total})
+                                    </span>
+                                )}
+                            </div>
+
+                            {movements.last_page > 1 && (
+                                <Pagination
+                                    currentPage={movements.current_page}
+                                    totalPages={movements.last_page}
+                                    onPageChange={handlePageChange}
+                                    iconOnly
+                                />
+                            )}
+                        </div>
                     )}
                 </Card>
             </div>

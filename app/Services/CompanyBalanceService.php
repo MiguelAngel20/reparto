@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CashSession;
 use App\Models\CompanyBalanceMovement;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class CompanyBalanceService
@@ -47,22 +48,43 @@ class CompanyBalanceService
 
     public function addBalanceEntry(User $user, string $direction, float $amount, ?string $notes = null): CompanyBalanceMovement
     {
-        $amount = round(abs($amount), 2);
-        $delta = $direction === 'company_owes'
-            ? -$amount
-            : $amount;
+        $movement = $this->createBalanceEntry($user, $direction, $amount, $notes);
+        $this->recalculateUserBalance($user);
 
+        return $movement->refresh();
+    }
+
+    public function updateBalanceEntry(
+        User $user,
+        CompanyBalanceMovement $movement,
+        string $direction,
+        float $amount,
+        ?string $notes = null,
+    ): CompanyBalanceMovement {
+        if ($movement->user_id !== $user->id) {
+            throw new \InvalidArgumentException('No puedes editar este movimiento.');
+        }
+
+        if ($movement->type !== CompanyBalanceMovement::TYPE_BALANCE_ENTRY) {
+            throw new \InvalidArgumentException('Solo puedes editar saldos registrados.');
+        }
+
+        $newDelta = $this->directionToDelta($direction, $amount);
         $autoNote = $direction === 'company_owes'
             ? 'Saldo registrado: la empresa me debe'
             : 'Saldo registrado: yo debo a la empresa';
+        $newNotes = $notes ?: $autoNote;
 
-        return $this->applyMovement(
-            $user,
-            $delta,
-            CompanyBalanceMovement::TYPE_BALANCE_ENTRY,
-            null,
-            $notes ?: $autoNote,
-        );
+        DB::transaction(function () use ($user, $movement, $newDelta, $newNotes) {
+            $movement->update([
+                'amount' => $newDelta,
+                'notes' => $newNotes,
+            ]);
+
+            $this->recalculateUserBalance($user);
+        });
+
+        return $movement->refresh();
     }
 
     public function applySessionSettlement(CashSession $session): ?CompanyBalanceMovement
@@ -90,16 +112,21 @@ class CompanyBalanceService
             return null;
         }
 
-        $sessionLabel = $session->isManual() ? 'captura manual' : 'jornada en vivo';
-        $dateLabel = $session->capture_date?->format('d/m/Y') ?? now()->format('d/m/Y');
+        if (! $this->sessionAffectsCompanyBalance($session)) {
+            return null;
+        }
 
-        return $this->applyMovement(
+        $movement = $this->applyMovement(
             $user,
             $settlement,
             CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT,
             $session->id,
-            "Cuadre de {$sessionLabel} ({$dateLabel})",
+            null,
         );
+
+        $this->recalculateUserBalance($user);
+
+        return $movement->refresh();
     }
 
     public function liquidate(User $user, ?string $notes = null): CompanyBalanceMovement
@@ -117,6 +144,127 @@ class CompanyBalanceService
             null,
             $notes ?: 'Cuenta liquidada',
         );
+    }
+
+    public function recalculateUserBalance(User $user): void
+    {
+        DB::transaction(function () use ($user) {
+            /** @var User $lockedUser */
+            $lockedUser = User::query()->lockForUpdate()->findOrFail($user->id);
+            $anchorDate = $this->balanceAnchorDate($lockedUser);
+
+            CompanyBalanceMovement::query()
+                ->where('user_id', $lockedUser->id)
+                ->where('type', CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT)
+                ->with('cashSession')
+                ->get()
+                ->each(function (CompanyBalanceMovement $movement) use ($anchorDate) {
+                    if (! $movement->cashSession) {
+                        $movement->delete();
+
+                        return;
+                    }
+
+                    if (! $this->sessionAffectsCompanyBalance($movement->cashSession, $anchorDate)) {
+                        $movement->delete();
+                    }
+                });
+
+            $movements = CompanyBalanceMovement::query()
+                ->where('user_id', $lockedUser->id)
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $balance = 0.0;
+
+            foreach ($movements as $item) {
+                if ($item->type === CompanyBalanceMovement::TYPE_LIQUIDATION) {
+                    $item->amount = round(-$balance, 2);
+                }
+
+                $balance = round($balance + (float) $item->amount, 2);
+                $item->balance_after = $balance;
+                $item->save();
+            }
+
+            $lockedUser->update(['company_balance' => $balance]);
+        });
+    }
+
+    public function sessionAffectsCompanyBalance(CashSession $session, ?Carbon $anchorDate = null): bool
+    {
+        if ($anchorDate === null) {
+            $user = $session->user;
+            if (! $user) {
+                return false;
+            }
+
+            $anchorDate = $this->balanceAnchorDate($user);
+
+            if ($anchorDate === null) {
+                return true;
+            }
+        }
+
+        $sessionDate = $this->sessionWorkDate($session);
+        if ($sessionDate === null) {
+            return true;
+        }
+
+        return $sessionDate->greaterThanOrEqualTo($anchorDate);
+    }
+
+    private function balanceAnchorDate(User $user): ?Carbon
+    {
+        $entry = CompanyBalanceMovement::query()
+            ->where('user_id', $user->id)
+            ->where('type', CompanyBalanceMovement::TYPE_BALANCE_ENTRY)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->first();
+
+        return $entry?->created_at?->copy()->startOfDay();
+    }
+
+    private function sessionWorkDate(CashSession $session): ?Carbon
+    {
+        if ($session->capture_date) {
+            return $session->capture_date->copy()->startOfDay();
+        }
+
+        if ($session->started_at) {
+            return $session->started_at->copy()->startOfDay();
+        }
+
+        return null;
+    }
+
+    private function createBalanceEntry(User $user, string $direction, float $amount, ?string $notes = null): CompanyBalanceMovement
+    {
+        $delta = $this->directionToDelta($direction, $amount);
+
+        $autoNote = $direction === 'company_owes'
+            ? 'Saldo registrado: la empresa me debe'
+            : 'Saldo registrado: yo debo a la empresa';
+
+        return $this->applyMovement(
+            $user,
+            $delta,
+            CompanyBalanceMovement::TYPE_BALANCE_ENTRY,
+            null,
+            $notes ?: $autoNote,
+        );
+    }
+
+    private function directionToDelta(string $direction, float $amount): float
+    {
+        $amount = round(abs($amount), 2);
+
+        return $direction === 'company_owes'
+            ? -$amount
+            : $amount;
     }
 
     private function applyMovement(
