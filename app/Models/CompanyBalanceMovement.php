@@ -22,6 +22,7 @@ class CompanyBalanceMovement extends Model
         'balance_after',
         'cash_session_id',
         'notes',
+        'amount_locked_at',
     ];
 
     protected function casts(): array
@@ -29,6 +30,7 @@ class CompanyBalanceMovement extends Model
         return [
             'amount' => 'decimal:2',
             'balance_after' => 'decimal:2',
+            'amount_locked_at' => 'datetime',
         ];
     }
 

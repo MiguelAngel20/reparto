@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CompanyBalance\AdjustBalanceRequest;
+use App\Http\Requests\CompanyBalance\CorrectBalanceAfterRequest;
 use App\Http\Requests\CompanyBalance\LiquidateBalanceRequest;
 use App\Http\Requests\CompanyBalance\StoreBalanceEntryRequest;
 use App\Http\Requests\CompanyBalance\UpdateBalanceEntryRequest;
@@ -83,7 +84,7 @@ class CompanyBalanceController extends Controller
                     (float) $validated['amount'],
                     $validated['notes'] ?? null,
                 ),
-                CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT => $this->companyBalance->updateSessionSettlement(
+                CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT => $this->companyBalance->correctMovementBalanceAfter(
                     $request->user(),
                     $movement,
                     $validated['direction'],
@@ -97,10 +98,33 @@ class CompanyBalanceController extends Controller
         }
 
         $message = $movement->type === CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT
-            ? 'Cuadre actualizado. El saldo final se recalculó.'
+            ? 'Saldo corregido. Se recalculó con las jornadas posteriores.'
             : 'Saldo actualizado. Se recalculó con las jornadas posteriores.';
 
         return back()->with('success', $message);
+    }
+
+    public function correctBalanceAfter(
+        CorrectBalanceAfterRequest $request,
+        CompanyBalanceMovement $movement,
+    ): RedirectResponse {
+        abort_unless($movement->user_id === $request->user()->id, 403);
+
+        $validated = $request->validated();
+
+        try {
+            $this->companyBalance->correctMovementBalanceAfter(
+                $request->user(),
+                $movement,
+                $validated['direction'],
+                (float) $validated['amount'],
+                $validated['notes'] ?? null,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Saldo corregido. Se recalculó con los movimientos posteriores.');
     }
 
     public function adjustBalance(AdjustBalanceRequest $request): RedirectResponse
@@ -164,8 +188,11 @@ class CompanyBalanceController extends Controller
         };
 
         $notes = $movement->type === CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT
-            ? null
+            ? $movement->notes
             : $movement->notes;
+
+        $balanceAfter = (float) $movement->balance_after;
+        $balanceAfterDisplay = $this->companyBalance->displayForBalance($balanceAfter, $companyName);
 
         return [
             'id' => $movement->id,
@@ -174,6 +201,7 @@ class CompanyBalanceController extends Controller
                 CompanyBalanceMovement::TYPE_BALANCE_ENTRY,
                 CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT,
             ], true),
+            'shows_resulting_balance' => $movement->type === CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT,
             'direction' => $amount < -0.01
                 ? 'company_owes'
                 : ($amount > 0.01 ? 'user_owes' : null),
@@ -185,11 +213,14 @@ class CompanyBalanceController extends Controller
                 ? 'company'
                 : ($amount < -0.01 ? 'user' : 'neutral'),
             'signed_label' => $signedLabel,
-            'balance_after' => (float) $movement->balance_after,
-            'balance_after_label' => $this->companyBalance->displayForBalance(
-                (float) $movement->balance_after,
-                $companyName,
-            )['value'],
+            'balance_after' => $balanceAfter,
+            'balance_after_label' => $balanceAfterDisplay['value'],
+            'balance_after_summary' => $balanceAfterDisplay['label'],
+            'balance_after_tone' => $balanceAfterDisplay['tone'],
+            'balance_after_direction' => $balanceAfter < -0.01
+                ? 'company_owes'
+                : ($balanceAfter > 0.01 ? 'user_owes' : null),
+            'balance_after_absolute' => abs($balanceAfter) >= 0.01 ? abs($balanceAfter) : null,
             'notes' => $notes,
             'display_date' => $displayDate,
         ];

@@ -116,6 +116,69 @@ class CompanyBalanceService
         return $movement->refresh();
     }
 
+    public function correctMovementBalanceAfter(
+        User $user,
+        CompanyBalanceMovement $movement,
+        string $direction,
+        float $amount,
+        ?string $notes = null,
+    ): CompanyBalanceMovement {
+        if ($movement->user_id !== $user->id) {
+            throw new \InvalidArgumentException('No puedes editar este movimiento.');
+        }
+
+        if (! in_array($movement->type, [
+            CompanyBalanceMovement::TYPE_BALANCE_ENTRY,
+            CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT,
+        ], true)) {
+            throw new \InvalidArgumentException('No puedes corregir el saldo de este movimiento.');
+        }
+
+        $targetBalance = $this->targetBalanceFromDirection($direction, $amount);
+
+        DB::transaction(function () use ($user, $movement, $targetBalance, $notes) {
+            $movements = CompanyBalanceMovement::query()
+                ->where('user_id', $user->id)
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $balanceBefore = 0.0;
+            $found = false;
+
+            foreach ($movements as $item) {
+                if ($item->id === $movement->id) {
+                    $newAmount = round($targetBalance - $balanceBefore, 2);
+                    $update = ['amount' => $newAmount];
+
+                    if ($movement->type === CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT) {
+                        $update['amount_locked_at'] = now();
+                    }
+
+                    if ($notes !== null) {
+                        $update['notes'] = $notes;
+                    }
+
+                    $item->update($update);
+                    $found = true;
+
+                    break;
+                }
+
+                $balanceBefore = round($balanceBefore + (float) $item->amount, 2);
+            }
+
+            if (! $found) {
+                throw new \InvalidArgumentException('No se encontró el movimiento.');
+            }
+
+            $this->recalculateUserBalance($user);
+        });
+
+        return $movement->refresh();
+    }
+
     public function adjustBalanceToTarget(
         User $user,
         string $direction,
@@ -315,9 +378,14 @@ class CompanyBalanceService
                 }
 
                 if ($movement) {
-                    if (round((float) $movement->amount, 2) !== $settlement) {
-                        $movement->update(['amount' => $settlement]);
+                    if ($movement->amount_locked_at !== null) {
+                        return;
                     }
+
+                    $movement->update([
+                        'amount' => $settlement,
+                        'amount_locked_at' => null,
+                    ]);
 
                     return;
                 }

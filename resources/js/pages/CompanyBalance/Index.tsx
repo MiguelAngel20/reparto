@@ -21,6 +21,7 @@ type Movement = {
     type: string;
     type_label: string;
     editable: boolean;
+    shows_resulting_balance: boolean;
     direction: 'company_owes' | 'user_owes' | null;
     amount_absolute: number | null;
     amount: number;
@@ -29,6 +30,10 @@ type Movement = {
     signed_label: string;
     balance_after: number;
     balance_after_label: string;
+    balance_after_summary: string;
+    balance_after_tone: BalanceDisplay['tone'];
+    balance_after_direction: 'company_owes' | 'user_owes' | null;
+    balance_after_absolute: number | null;
     notes: string | null;
     display_date: string | null;
 };
@@ -118,7 +123,7 @@ export default function CompanyBalanceIndex({
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [editingType, setEditingType] = useState<'entry' | 'settlement' | null>(null);
+    const [editingType, setEditingType] = useState<'entry' | 'resulting_balance' | null>(null);
     const [showAdjustForm, setShowAdjustForm] = useState(false);
 
     const entryForm = useForm({
@@ -148,7 +153,12 @@ export default function CompanyBalanceIndex({
         e.preventDefault();
 
         if (editingId) {
-            entryForm.put(`/cuenta-empresa/movimientos/${editingId}`, {
+            const endpoint =
+                editingType === 'resulting_balance'
+                    ? `/cuenta-empresa/movimientos/${editingId}/saldo-resultante`
+                    : `/cuenta-empresa/movimientos/${editingId}`;
+
+            entryForm.put(endpoint, {
                 preserveScroll: true,
                 onSuccess: () => {
                     entryForm.reset();
@@ -168,17 +178,29 @@ export default function CompanyBalanceIndex({
     const startEditing = (movement: Movement) => {
         setShowAdjustForm(false);
         setEditingId(movement.id);
-        setEditingType(
-            movement.type === 'session_settlement' ? 'settlement' : 'entry',
-        );
-        entryForm.setData({
-            direction: movement.direction ?? 'user_owes',
-            amount:
-                movement.amount_absolute !== null
-                    ? String(movement.amount_absolute)
-                    : '',
-            notes: movement.notes ?? '',
-        });
+
+        if (movement.type === 'session_settlement') {
+            setEditingType('resulting_balance');
+            entryForm.setData({
+                direction: movement.balance_after_direction ?? 'user_owes',
+                amount:
+                    movement.balance_after_absolute !== null
+                        ? String(movement.balance_after_absolute)
+                        : '',
+                notes: movement.notes ?? '',
+            });
+        } else {
+            setEditingType('entry');
+            entryForm.setData({
+                direction: movement.direction ?? 'user_owes',
+                amount:
+                    movement.amount_absolute !== null
+                        ? String(movement.amount_absolute)
+                        : '',
+                notes: movement.notes ?? '',
+            });
+        }
+
         entryForm.clearErrors();
     };
 
@@ -406,15 +428,15 @@ export default function CompanyBalanceIndex({
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                                {editingType === 'settlement'
-                                    ? 'Editar cuadre de jornada'
+                                {editingType === 'resulting_balance'
+                                    ? 'Corregir saldo después de la jornada'
                                     : editingId
                                       ? 'Editar saldo registrado'
                                       : 'Registrar nuevo saldo'}
                             </h2>
                             <p className="mt-1 text-sm text-slate-500">
-                                {editingType === 'settlement'
-                                    ? 'Corrige el monto del cuadre. El saldo final y los movimientos posteriores se recalculan.'
+                                {editingType === 'resulting_balance'
+                                    ? 'Indica el saldo correcto que debía quedar tras esta jornada. Los movimientos posteriores se recalculan automáticamente.'
                                     : editingId
                                       ? 'Al guardar, el saldo se recalcula con todas las jornadas cerradas después de este registro.'
                                       : `Usa esto cuando traes dinero de la empresa o cuando ${companyName} ya te debe dinero antes de cerrar jornadas.`}
@@ -464,12 +486,14 @@ export default function CompanyBalanceIndex({
 
                         <div>
                             <Label htmlFor="amount" className="mb-1 block text-xs text-slate-500">
-                                Monto ($)
+                                {editingType === 'resulting_balance'
+                                    ? 'Saldo correcto después de esta jornada ($)'
+                                    : 'Monto ($)'}
                             </Label>
                             <Input
                                 id="amount"
                                 type="number"
-                                min={0.01}
+                                min={editingType === 'resulting_balance' ? 0 : 0.01}
                                 step="0.01"
                                 value={entryForm.data.amount}
                                 onChange={(e) => entryForm.setData('amount', e.target.value)}
@@ -483,13 +507,17 @@ export default function CompanyBalanceIndex({
 
                         <div>
                             <Label htmlFor="notes" className="mb-1 block text-xs text-slate-500">
-                                Nota (opcional)
+                                {editingType === 'resulting_balance' ? 'Motivo (opcional)' : 'Nota (opcional)'}
                             </Label>
                             <Input
                                 id="notes"
                                 value={entryForm.data.notes}
                                 onChange={(e) => entryForm.setData('notes', e.target.value)}
-                                placeholder="Ej. Efectivo que traigo de la empresa"
+                                placeholder={
+                                    editingType === 'resulting_balance'
+                                        ? 'Ej. Redondeo con Clikio'
+                                        : 'Ej. Efectivo que traigo de la empresa'
+                                }
                             />
                         </div>
 
@@ -531,39 +559,76 @@ export default function CompanyBalanceIndex({
                                     className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]/50"
                                 >
                                     <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-sm font-semibold text-slate-900 dark:text-white">
                                                 {movement.type_label}
                                             </p>
                                             <p className="mt-0.5 text-xs text-slate-500">
                                                 {movement.display_date}
                                             </p>
-                                            {movement.notes && (
-                                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                                                    {movement.notes}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="flex shrink-0 items-start gap-2">
-                                            <div className="text-right">
+                                            {movement.type !== 'session_settlement' && (
                                                 <p
                                                     className={cn(
-                                                        'text-sm font-semibold tabular-nums',
+                                                        'mt-2 text-sm font-semibold tabular-nums',
                                                         amountToneClass(movement.favor),
                                                     )}
                                                 >
                                                     {movement.amount_label}
                                                 </p>
-                                                <div className="mt-1 flex justify-end">
+                                            )}
+                                            {movement.type === 'session_settlement' && (
+                                                <p className="mt-1 text-xs text-slate-500">
+                                                    Cuadre del día:{' '}
+                                                    <span
+                                                        className={cn(
+                                                            'font-semibold tabular-nums',
+                                                            amountToneClass(movement.favor),
+                                                        )}
+                                                    >
+                                                        {movement.amount_label}
+                                                    </span>
+                                                </p>
+                                            )}
+                                            {movement.type !== 'session_settlement' && (
+                                                <div className="mt-1">
                                                     <FavorBadge
                                                         label={movement.signed_label}
                                                         favor={movement.favor}
                                                     />
                                                 </div>
-                                                <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                                    Saldo: {movement.balance_after_label}
+                                            )}
+                                            {movement.notes && (
+                                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                                                    {movement.notes}
                                                 </p>
-                                            </div>
+                                            )}
+                                            {movement.shows_resulting_balance && (
+                                                <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-[#3a3a3a] dark:bg-[#262626]">
+                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                                        Saldo resultante
+                                                    </p>
+                                                    <p
+                                                        className={cn(
+                                                            'mt-0.5 text-lg font-bold tabular-nums',
+                                                            toneClass(movement.balance_after_tone),
+                                                        )}
+                                                    >
+                                                        {movement.balance_after_label}
+                                                    </p>
+                                                    <p className="mt-0.5 text-xs text-slate-500">
+                                                        {movement.balance_after_summary}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex shrink-0 items-start gap-2">
+                                            {!movement.shows_resulting_balance && (
+                                                <div className="text-right">
+                                                    <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                                        Saldo: {movement.balance_after_label}
+                                                    </p>
+                                                </div>
+                                            )}
                                             {movement.editable && (
                                                 <button
                                                     type="button"
@@ -575,7 +640,7 @@ export default function CompanyBalanceIndex({
                                                     )}
                                                     title={
                                                         movement.type === 'session_settlement'
-                                                            ? 'Editar cuadre'
+                                                            ? 'Corregir saldo resultante'
                                                             : 'Editar saldo'
                                                     }
                                                 >
