@@ -20,6 +20,7 @@ import {
     LayoutGrid,
     LogOut,
     Package,
+    Receipt,
     Scale,
     Settings,
     X,
@@ -39,6 +40,7 @@ const allNavItems: NavItem[] = [
     { title: 'Iniciar jornada', href: '/reparto', icon: Package },
     { title: 'Captura manual', href: '/captura-manual', icon: ClipboardList },
     { title: 'Cuenta empresa', href: '/cuenta-empresa', icon: Scale },
+    { title: 'Gasto', href: '/gasto', icon: Receipt },
 ];
 
 export function AppSidebar({ collapsed = false, narrow = false, asDrawer = false, onClose }: AppSidebarProps) {

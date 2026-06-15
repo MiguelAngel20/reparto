@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\CompanyBalanceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GastoController;
 use App\Http\Controllers\Reparto\CashSessionController;
 use App\Http\Controllers\Reparto\DeliveryOrderController;
 use App\Http\Controllers\Reparto\ManualCaptureController;
@@ -44,6 +45,12 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    Route::prefix('gasto')->name('gasto.')->group(function () {
+        Route::get('/', [GastoController::class, 'index'])->name('index');
+        Route::post('/', [GastoController::class, 'store'])->name('store');
+        Route::delete('/{expense}', [GastoController::class, 'destroy'])->name('destroy');
+    });
 
     Route::prefix('cuenta-empresa')->name('company-balance.')->group(function () {
         Route::get('/', [CompanyBalanceController::class, 'index'])->name('index');

@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
-import { ClipboardList, LayoutGrid, LogOut, Package, Scale, Settings } from 'lucide-react';
+import { ClipboardList, LayoutGrid, LogOut, Package, Receipt, Scale, Settings } from 'lucide-react';
 
 const navItems = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
@@ -89,6 +89,12 @@ export function AppBottomNav() {
                         sideOffset={10}
                         className="min-w-[190px] border-slate-200 bg-white dark:border-slate-700 dark:bg-[#262626]"
                     >
+                        <DropdownMenuItem asChild>
+                            <Link href="/gasto" className="flex cursor-pointer items-center gap-2">
+                                <Receipt className="h-4 w-4" />
+                                Gasto
+                            </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link
                                 href={
