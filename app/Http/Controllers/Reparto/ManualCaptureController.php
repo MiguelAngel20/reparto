@@ -7,6 +7,7 @@ use App\Http\Requests\Reparto\StoreManualCaptureEntryRequest;
 use App\Models\CashSession;
 use App\Models\DeliveryOrder;
 use App\Services\CashSessionSummary;
+use App\Services\CompanyBalanceService;
 use App\Services\DeliveryCommissionCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,10 @@ use Inertia\Response;
 class ManualCaptureController extends Controller
 {
     use RepartoFormatter;
+
+    public function __construct(
+        private readonly CompanyBalanceService $companyBalance,
+    ) {}
 
     public function index(Request $request): Response|RedirectResponse
     {
@@ -46,6 +51,8 @@ class ManualCaptureController extends Controller
             $this->buildOrderAttributes($request->user(), $session, $request->validated())
         );
 
+        $this->refreshCompanyBalanceIfNeeded($session);
+
         return redirect()
             ->route('manual-capture.edit', $session)
             ->with('success', 'Pedido agregado.');
@@ -63,6 +70,8 @@ class ManualCaptureController extends Controller
             $this->buildOrderAttributes($request->user(), $session, $request->validated(), $order)
         );
 
+        $this->refreshCompanyBalanceIfNeeded($session);
+
         return redirect()
             ->route('manual-capture.edit', $session)
             ->with('success', 'Pedido actualizado.');
@@ -78,6 +87,8 @@ class ManualCaptureController extends Controller
         abort_unless($session->isManual(), 403, 'Solo puedes eliminar pedidos en capturas manuales por fecha.');
 
         $order->delete();
+
+        $this->refreshCompanyBalanceIfNeeded($session);
 
         return redirect()
             ->route('manual-capture.edit', $session)
@@ -271,6 +282,16 @@ class ManualCaptureController extends Controller
             'duration_seconds' => null,
             'status' => DeliveryOrder::STATUS_COMPLETED,
         ]);
+    }
+
+    protected function refreshCompanyBalanceIfNeeded(CashSession $session): void
+    {
+        if ($session->status !== CashSession::STATUS_CLOSED) {
+            return;
+        }
+
+        $session->refresh();
+        $this->companyBalance->refreshSessionSettlement($session);
     }
 
     protected function syncOrderCommissions(DeliveryOrder $order, float $profilePercentage): void

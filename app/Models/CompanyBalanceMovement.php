@@ -13,6 +13,8 @@ class CompanyBalanceMovement extends Model
 
     public const TYPE_LIQUIDATION = 'liquidation';
 
+    public const TYPE_ADJUSTMENT = 'adjustment';
+
     protected $fillable = [
         'user_id',
         'type',

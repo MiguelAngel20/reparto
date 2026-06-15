@@ -49,6 +49,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [CompanyBalanceController::class, 'index'])->name('index');
         Route::post('/saldo', [CompanyBalanceController::class, 'storeEntry'])->name('entry.store');
         Route::put('/saldo/{movement}', [CompanyBalanceController::class, 'updateEntry'])->name('entry.update');
+        Route::put('/movimientos/{movement}', [CompanyBalanceController::class, 'updateMovement'])->name('movement.update');
+        Route::post('/ajustar', [CompanyBalanceController::class, 'adjustBalance'])->name('adjust');
         Route::post('/liquidar', [CompanyBalanceController::class, 'liquidate'])->name('liquidate');
     });
 

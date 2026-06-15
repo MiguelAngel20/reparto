@@ -118,9 +118,17 @@ export default function CompanyBalanceIndex({
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [editingType, setEditingType] = useState<'entry' | 'settlement' | null>(null);
+    const [showAdjustForm, setShowAdjustForm] = useState(false);
 
     const entryForm = useForm({
         direction: 'company_owes' as 'company_owes' | 'user_owes',
+        amount: '',
+        notes: '',
+    });
+
+    const adjustForm = useForm({
+        direction: 'user_owes' as 'company_owes' | 'user_owes',
         amount: '',
         notes: '',
     });
@@ -140,11 +148,12 @@ export default function CompanyBalanceIndex({
         e.preventDefault();
 
         if (editingId) {
-            entryForm.put(`/cuenta-empresa/saldo/${editingId}`, {
+            entryForm.put(`/cuenta-empresa/movimientos/${editingId}`, {
                 preserveScroll: true,
                 onSuccess: () => {
                     entryForm.reset();
                     setEditingId(null);
+                    setEditingType(null);
                 },
             });
             return;
@@ -157,7 +166,11 @@ export default function CompanyBalanceIndex({
     };
 
     const startEditing = (movement: Movement) => {
+        setShowAdjustForm(false);
         setEditingId(movement.id);
+        setEditingType(
+            movement.type === 'session_settlement' ? 'settlement' : 'entry',
+        );
         entryForm.setData({
             direction: movement.direction ?? 'user_owes',
             amount:
@@ -171,8 +184,40 @@ export default function CompanyBalanceIndex({
 
     const cancelEditing = () => {
         setEditingId(null);
+        setEditingType(null);
         entryForm.reset();
         entryForm.clearErrors();
+    };
+
+    const openAdjustForm = () => {
+        cancelEditing();
+        const direction = balance < -0.01 ? 'company_owes' : 'user_owes';
+        const amount = Math.abs(balance) >= 0.01 ? String(Math.abs(balance)) : '';
+
+        adjustForm.setData({
+            direction,
+            amount,
+            notes: '',
+        });
+        adjustForm.clearErrors();
+        setShowAdjustForm(true);
+    };
+
+    const cancelAdjustForm = () => {
+        setShowAdjustForm(false);
+        adjustForm.reset();
+        adjustForm.clearErrors();
+    };
+
+    const submitAdjust = (e: React.FormEvent) => {
+        e.preventDefault();
+        adjustForm.post('/cuenta-empresa/ajustar', {
+            preserveScroll: true,
+            onSuccess: () => {
+                adjustForm.reset();
+                setShowAdjustForm(false);
+            },
+        });
     };
 
     const submitLiquidation = async () => {
@@ -235,28 +280,144 @@ export default function CompanyBalanceIndex({
                         </div>
                     </div>
 
-                    {hasBalance && (
+                    <div className="mt-4 flex flex-wrap gap-2">
                         <button
                             type="button"
-                            onClick={submitLiquidation}
-                            disabled={liquidateForm.processing}
-                            className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border-2 border-sidebar-active text-sm font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50 sm:w-auto sm:px-6"
+                            onClick={openAdjustForm}
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-sidebar-active bg-sidebar-active/5 px-4 text-sm font-semibold text-sidebar-active hover:bg-sidebar-active/10 sm:px-6"
                         >
-                            {liquidateForm.processing ? 'Liquidando...' : 'Liquidar cuenta'}
+                            <Pencil className="h-4 w-4" />
+                            Ajustar saldo final
                         </button>
-                    )}
+                        {hasBalance && (
+                            <button
+                                type="button"
+                                onClick={submitLiquidation}
+                                disabled={liquidateForm.processing}
+                                className="inline-flex h-10 items-center justify-center rounded-xl border-2 border-sidebar-active px-4 text-sm font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50 sm:px-6"
+                            >
+                                {liquidateForm.processing ? 'Liquidando...' : 'Liquidar cuenta'}
+                            </button>
+                        )}
+                    </div>
                 </Card>
 
-                <Card className={cardClass}>
+                {showAdjustForm && (
+                    <Card className={cardClass}>
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                                    Ajustar saldo final con {companyName}
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-500">
+                                    Indica el saldo correcto según el cuadre de la empresa (por
+                                    redondeos u otros detalles). Sistema actual:{' '}
+                                    <span className="font-semibold text-slate-700 dark:text-slate-200">
+                                        {balanceDisplay.value}
+                                    </span>
+                                    .
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={cancelAdjustForm}
+                                className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
+                                title="Cancelar"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={submitAdjust} noValidate className="mt-4 space-y-4">
+                            <p className="text-xs text-slate-500">
+                                El saldo correcto ahora debe ser:
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    onClick={() => adjustForm.setData('direction', 'company_owes')}
+                                    className={cn(
+                                        'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                                        adjustForm.data.direction === 'company_owes'
+                                            ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
+                                            : 'border-slate-200 dark:border-[#3a3a3a]',
+                                    )}
+                                >
+                                    <span className="block font-semibold">{companyName} me debe</span>
+                                    <span className="mt-1 block text-xs opacity-80">A tu favor</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => adjustForm.setData('direction', 'user_owes')}
+                                    className={cn(
+                                        'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                                        adjustForm.data.direction === 'user_owes'
+                                            ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
+                                            : 'border-slate-200 dark:border-[#3a3a3a]',
+                                    )}
+                                >
+                                    <span className="block font-semibold">Yo le debo a {companyName}</span>
+                                    <span className="mt-1 block text-xs opacity-80">A favor de la empresa</span>
+                                </button>
+                            </div>
+
+                            <div>
+                                <Label htmlFor="adjust_amount" className="mb-1 block text-xs text-slate-500">
+                                    Saldo correcto ($)
+                                </Label>
+                                <Input
+                                    id="adjust_amount"
+                                    type="number"
+                                    min={0.01}
+                                    step="0.01"
+                                    value={adjustForm.data.amount}
+                                    onChange={(e) => adjustForm.setData('amount', e.target.value)}
+                                    className={cn(adjustForm.errors.amount && 'border-rose-500')}
+                                />
+                                {adjustForm.errors.amount && (
+                                    <p className="mt-1 text-xs text-rose-600">{adjustForm.errors.amount}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="adjust_notes" className="mb-1 block text-xs text-slate-500">
+                                    Motivo (opcional)
+                                </Label>
+                                <Input
+                                    id="adjust_notes"
+                                    value={adjustForm.data.notes}
+                                    onChange={(e) => adjustForm.setData('notes', e.target.value)}
+                                    placeholder="Ej. Redondeo de centavos con Clikio"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={adjustForm.processing}
+                                className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-sidebar-active text-sm font-semibold text-white disabled:opacity-50 sm:w-auto sm:px-6"
+                            >
+                                {adjustForm.processing ? 'Guardando...' : 'Guardar ajuste'}
+                            </button>
+                        </form>
+                    </Card>
+                )}
+
+                <Card className={cn(cardClass, editingId && 'ring-2 ring-sidebar-active/30')}>
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                                {editingId ? 'Editar saldo registrado' : 'Registrar nuevo saldo'}
+                                {editingType === 'settlement'
+                                    ? 'Editar cuadre de jornada'
+                                    : editingId
+                                      ? 'Editar saldo registrado'
+                                      : 'Registrar nuevo saldo'}
                             </h2>
                             <p className="mt-1 text-sm text-slate-500">
-                                {editingId
-                                    ? 'Al guardar, el saldo se recalcula con todas las jornadas cerradas después de este registro.'
-                                    : `Usa esto cuando traes dinero de la empresa o cuando ${companyName} ya te debe dinero antes de cerrar jornadas.`}
+                                {editingType === 'settlement'
+                                    ? 'Corrige el monto del cuadre. El saldo final y los movimientos posteriores se recalculan.'
+                                    : editingId
+                                      ? 'Al guardar, el saldo se recalcula con todas las jornadas cerradas después de este registro.'
+                                      : `Usa esto cuando traes dinero de la empresa o cuando ${companyName} ya te debe dinero antes de cerrar jornadas.`}
                             </p>
                         </div>
                         {editingId && (
@@ -412,7 +573,11 @@ export default function CompanyBalanceIndex({
                                                         editingId === movement.id &&
                                                             'bg-sidebar-active/10 text-sidebar-active',
                                                     )}
-                                                    title="Editar saldo"
+                                                    title={
+                                                        movement.type === 'session_settlement'
+                                                            ? 'Editar cuadre'
+                                                            : 'Editar saldo'
+                                                    }
                                                 >
                                                     <Pencil className="h-4 w-4" />
                                                 </button>

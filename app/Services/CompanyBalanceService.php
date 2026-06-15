@@ -87,6 +87,62 @@ class CompanyBalanceService
         return $movement->refresh();
     }
 
+    public function updateSessionSettlement(
+        User $user,
+        CompanyBalanceMovement $movement,
+        string $direction,
+        float $amount,
+        ?string $notes = null,
+    ): CompanyBalanceMovement {
+        if ($movement->user_id !== $user->id) {
+            throw new \InvalidArgumentException('No puedes editar este movimiento.');
+        }
+
+        if ($movement->type !== CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT) {
+            throw new \InvalidArgumentException('Solo puedes editar cuadres de jornada.');
+        }
+
+        $newDelta = $this->directionToDelta($direction, $amount);
+
+        DB::transaction(function () use ($user, $movement, $newDelta, $notes) {
+            $movement->update([
+                'amount' => $newDelta,
+                'notes' => $notes,
+            ]);
+
+            $this->recalculateUserBalance($user);
+        });
+
+        return $movement->refresh();
+    }
+
+    public function adjustBalanceToTarget(
+        User $user,
+        string $direction,
+        float $amount,
+        ?string $notes = null,
+    ): CompanyBalanceMovement {
+        $targetBalance = $this->targetBalanceFromDirection($direction, $amount);
+        $currentBalance = $this->currentBalance($user);
+        $delta = round($targetBalance - $currentBalance, 2);
+
+        if (abs($delta) < 0.01) {
+            throw new \InvalidArgumentException('El saldo ya coincide con el monto indicado.');
+        }
+
+        $movement = $this->applyMovement(
+            $user,
+            $delta,
+            CompanyBalanceMovement::TYPE_ADJUSTMENT,
+            null,
+            $notes ?: 'Ajuste para cuadrar con la empresa',
+        );
+
+        $this->recalculateUserBalance($user);
+
+        return $movement->refresh();
+    }
+
     public function applySessionSettlement(CashSession $session): ?CompanyBalanceMovement
     {
         if ($session->status !== CashSession::STATUS_CLOSED) {
@@ -153,6 +209,8 @@ class CompanyBalanceService
             $lockedUser = User::query()->lockForUpdate()->findOrFail($user->id);
             $anchorDate = $this->balanceAnchorDate($lockedUser);
 
+            $this->syncSessionSettlementMovements($lockedUser, $anchorDate);
+
             CompanyBalanceMovement::query()
                 ->where('user_id', $lockedUser->id)
                 ->where('type', CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT)
@@ -193,6 +251,16 @@ class CompanyBalanceService
         });
     }
 
+    public function refreshSessionSettlement(CashSession $session): void
+    {
+        $user = $session->user;
+        if (! $user) {
+            return;
+        }
+
+        $this->recalculateUserBalance($user);
+    }
+
     public function sessionAffectsCompanyBalance(CashSession $session, ?Carbon $anchorDate = null): bool
     {
         if ($anchorDate === null) {
@@ -214,6 +282,55 @@ class CompanyBalanceService
         }
 
         return $sessionDate->greaterThanOrEqualTo($anchorDate);
+    }
+
+    private function syncSessionSettlementMovements(User $user, ?Carbon $anchorDate): void
+    {
+        CashSession::query()
+            ->where('user_id', $user->id)
+            ->where('status', CashSession::STATUS_CLOSED)
+            ->orderBy('id')
+            ->get()
+            ->each(function (CashSession $session) use ($user, $anchorDate) {
+                $movement = CompanyBalanceMovement::query()
+                    ->where('cash_session_id', $session->id)
+                    ->where('type', CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT)
+                    ->first();
+
+                if (! $this->sessionAffectsCompanyBalance($session, $anchorDate)) {
+                    $movement?->delete();
+
+                    return;
+                }
+
+                $settlement = round(
+                    (float) CashSessionSummary::forSession($session)['clikio_settlement'],
+                    2,
+                );
+
+                if (abs($settlement) < 0.01) {
+                    $movement?->delete();
+
+                    return;
+                }
+
+                if ($movement) {
+                    if (round((float) $movement->amount, 2) !== $settlement) {
+                        $movement->update(['amount' => $settlement]);
+                    }
+
+                    return;
+                }
+
+                CompanyBalanceMovement::query()->create([
+                    'user_id' => $user->id,
+                    'type' => CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT,
+                    'amount' => $settlement,
+                    'balance_after' => 0,
+                    'cash_session_id' => $session->id,
+                    'notes' => null,
+                ]);
+            });
     }
 
     private function balanceAnchorDate(User $user): ?Carbon
@@ -256,6 +373,15 @@ class CompanyBalanceService
             null,
             $notes ?: $autoNote,
         );
+    }
+
+    private function targetBalanceFromDirection(string $direction, float $amount): float
+    {
+        $amount = round(abs($amount), 2);
+
+        return $direction === 'company_owes'
+            ? -$amount
+            : $amount;
     }
 
     private function directionToDelta(string $direction, float $amount): float

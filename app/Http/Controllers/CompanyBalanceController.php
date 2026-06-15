@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CompanyBalance\AdjustBalanceRequest;
 use App\Http\Requests\CompanyBalance\LiquidateBalanceRequest;
 use App\Http\Requests\CompanyBalance\StoreBalanceEntryRequest;
 use App\Http\Requests\CompanyBalance\UpdateBalanceEntryRequest;
@@ -64,14 +65,51 @@ class CompanyBalanceController extends Controller
 
     public function updateEntry(UpdateBalanceEntryRequest $request, CompanyBalanceMovement $movement): RedirectResponse
     {
+        return $this->updateMovement($request, $movement);
+    }
+
+    public function updateMovement(UpdateBalanceEntryRequest $request, CompanyBalanceMovement $movement): RedirectResponse
+    {
         abort_unless($movement->user_id === $request->user()->id, 403);
 
         $validated = $request->validated();
 
         try {
-            $this->companyBalance->updateBalanceEntry(
+            match ($movement->type) {
+                CompanyBalanceMovement::TYPE_BALANCE_ENTRY => $this->companyBalance->updateBalanceEntry(
+                    $request->user(),
+                    $movement,
+                    $validated['direction'],
+                    (float) $validated['amount'],
+                    $validated['notes'] ?? null,
+                ),
+                CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT => $this->companyBalance->updateSessionSettlement(
+                    $request->user(),
+                    $movement,
+                    $validated['direction'],
+                    (float) $validated['amount'],
+                    $validated['notes'] ?? null,
+                ),
+                default => throw new \InvalidArgumentException('No puedes editar este movimiento.'),
+            };
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $message = $movement->type === CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT
+            ? 'Cuadre actualizado. El saldo final se recalculó.'
+            : 'Saldo actualizado. Se recalculó con las jornadas posteriores.';
+
+        return back()->with('success', $message);
+    }
+
+    public function adjustBalance(AdjustBalanceRequest $request): RedirectResponse
+    {
+        $validated = $request->validated();
+
+        try {
+            $this->companyBalance->adjustBalanceToTarget(
                 $request->user(),
-                $movement,
                 $validated['direction'],
                 (float) $validated['amount'],
                 $validated['notes'] ?? null,
@@ -80,7 +118,7 @@ class CompanyBalanceController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Saldo actualizado. Se recalculó con las jornadas posteriores.');
+        return back()->with('success', 'Saldo ajustado para cuadrar con la empresa.');
     }
 
     public function liquidate(LiquidateBalanceRequest $request): RedirectResponse
@@ -114,6 +152,7 @@ class CompanyBalanceController extends Controller
             CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT => $session?->isManual()
                 ? 'Captura manual'
                 : 'Jornada en vivo',
+            CompanyBalanceMovement::TYPE_ADJUSTMENT => 'Ajuste de saldo',
             CompanyBalanceMovement::TYPE_LIQUIDATION => 'Liquidación',
             default => 'Movimiento',
         };
@@ -131,7 +170,10 @@ class CompanyBalanceController extends Controller
         return [
             'id' => $movement->id,
             'type' => $movement->type,
-            'editable' => $movement->type === CompanyBalanceMovement::TYPE_BALANCE_ENTRY,
+            'editable' => in_array($movement->type, [
+                CompanyBalanceMovement::TYPE_BALANCE_ENTRY,
+                CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT,
+            ], true),
             'direction' => $amount < -0.01
                 ? 'company_owes'
                 : ($amount > 0.01 ? 'user_owes' : null),
