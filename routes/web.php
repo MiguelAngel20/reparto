@@ -49,6 +49,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('gasto')->name('gasto.')->group(function () {
         Route::get('/', [GastoController::class, 'index'])->name('index');
         Route::post('/', [GastoController::class, 'store'])->name('store');
+        Route::put('/{expense}', [GastoController::class, 'update'])->name('update');
         Route::delete('/{expense}', [GastoController::class, 'destroy'])->name('destroy');
     });
 

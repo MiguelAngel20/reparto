@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Gasto\StoreDailyExpenseRequest;
+use App\Http\Requests\Gasto\UpdateDailyExpenseRequest;
 use App\Models\CashSession;
 use App\Models\DailyExpense;
 use App\Services\CashSessionSummary;
@@ -49,6 +50,19 @@ class GastoController extends Controller
         ]);
 
         return back()->with('success', 'Gasto registrado.');
+    }
+
+    public function update(UpdateDailyExpenseRequest $request, DailyExpense $expense): RedirectResponse
+    {
+        abort_unless($expense->user_id === $request->user()->id, 403);
+
+        $expense->update([
+            'name' => trim($request->validated('name')),
+            'amount' => round((float) $request->validated('amount'), 2),
+            'concept' => $request->validated('concept'),
+        ]);
+
+        return back()->with('success', 'Gasto actualizado.');
     }
 
     public function destroy(Request $request, DailyExpense $expense): RedirectResponse

@@ -21,6 +21,7 @@ class DashboardController extends Controller
             'companyName' => $user->company_name ?? 'Clikio',
             'todayStats' => $this->dashboard->todayStatsForUser($user),
             'dailyEarnings' => $this->dashboard->dailyEarningsForUser($user->id),
+            'weeklySummary' => $this->dashboard->weeklySummaryForUser($user->id),
         ]);
     }
 }

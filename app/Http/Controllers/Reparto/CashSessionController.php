@@ -43,14 +43,14 @@ class CashSessionController extends Controller
         CashSession::create([
             'user_id' => $user->id,
             'capture_date' => $today,
-            'initial_amount' => $request->validated('initial_amount'),
+            'initial_amount' => 0,
             'started_at' => now(),
             'session_type' => CashSession::TYPE_LIVE,
             'status' => CashSession::STATUS_OPEN,
             'notes' => $request->validated('notes'),
         ]);
 
-        return redirect()->route('reparto.index')->with('success', 'Caja abierta. ¡Buen reparto!');
+        return redirect()->route('reparto.index')->with('success', 'Jornada iniciada. ¡Buen reparto!');
     }
 
     public function close(CloseCashSessionRequest $request): RedirectResponse

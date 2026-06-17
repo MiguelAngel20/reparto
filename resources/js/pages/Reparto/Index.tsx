@@ -1,10 +1,18 @@
 import AppLayout from '@/layouts/app-layout';
-import { AuthFormField } from '@/components/auth/auth-form-field';
 import { Card } from '@/components/ui';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatCurrency, cn } from '@/lib/utils';
-import { validateOpenCashSession } from '@/lib/reparto-validation';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     SessionHistoryList,
     type SessionHistoryItem,
@@ -13,9 +21,9 @@ import {
     ActiveOrdersBar,
     type ActiveOrderSummary,
 } from '@/components/reparto/active-orders-bar';
-import { Package, Pencil, Play, Scale, Wallet } from 'lucide-react';
+import { Package, Pencil, Play, Receipt, Scale, TrendingDown } from 'lucide-react';
 import { confirmCloseCashSession } from '@/lib/sweetalert';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 type SessionOrderRow = {
@@ -61,6 +69,8 @@ interface RepartoIndexProps {
     todayBlockedMessage: string | null;
     userPercentage: number;
     companyName: string;
+    totalExpensesToday: number;
+    netEarningsToday: number;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -81,25 +91,29 @@ export default function RepartoIndex({
     todayBlockedMessage,
     userPercentage,
     companyName,
+    totalExpensesToday,
+    netEarningsToday,
 }: RepartoIndexProps) {
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
-    const openForm = useForm({ initial_amount: '', notes: '' });
+    const openForm = useForm({});
     const closeForm = useForm({});
     const startOrderForm = useForm({});
+    const expenseForm = useForm({
+        name: '',
+        amount: '',
+        concept: '',
+    });
+    const [expenseModalOpen, setExpenseModalOpen] = useState(false);
 
     const sessionSummary = useMemo(() => {
         if (!openSession) {
             return null;
         }
-        const expected = openSession.expected_cash_in_box ?? openSession.initial_amount;
         const settlement = openSession.clikio_settlement ?? 0;
-        const yourCash = Math.round((expected - settlement) * 100) / 100;
 
         return {
-            expected,
             settlement,
-            yourCash,
             owesClikio: settlement > 0,
             clikioOwesYou: settlement < 0,
             settlementAbs: Math.abs(settlement),
@@ -134,23 +148,28 @@ export default function RepartoIndex({
         if (flash?.error) toast.error(flash.error);
     }, [flash?.success, flash?.error]);
 
-    const clearInitialAmountError = () => {
-        if (openForm.errors.initial_amount) {
-            openForm.clearErrors('initial_amount');
-        }
-    };
-
-    const submitOpenCaja = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!canStartJornadaToday) {
+    useEffect(() => {
+        if (!openSession) {
             return;
         }
 
-        openForm.clearErrors();
+        const intervalId = window.setInterval(() => {
+            router.reload({
+                only: [
+                    'openSession',
+                    'sessionOrders',
+                    'activeOrders',
+                    'totalExpensesToday',
+                    'netEarningsToday',
+                ],
+            });
+        }, 5000);
 
-        const clientErrors = validateOpenCashSession(openForm.data);
-        if (clientErrors.initial_amount) {
-            openForm.setError('initial_amount', clientErrors.initial_amount);
+        return () => window.clearInterval(intervalId);
+    }, [openSession?.id]);
+
+    const startJornada = () => {
+        if (!canStartJornadaToday) {
             return;
         }
 
@@ -170,6 +189,17 @@ export default function RepartoIndex({
         closeForm.post('/reparto/caja/cerrar', { preserveScroll: true });
     };
 
+    const submitExpense = (e: React.FormEvent) => {
+        e.preventDefault();
+        expenseForm.post('/gasto', {
+            preserveScroll: true,
+            onSuccess: () => {
+                expenseForm.reset();
+                setExpenseModalOpen(false);
+            },
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs} title="Iniciar jornada">
             <Head title="Iniciar jornada" />
@@ -179,15 +209,15 @@ export default function RepartoIndex({
                     <Card className={cardClass}>
                         <div className="mb-6 flex items-start gap-4">
                             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sidebar-active/10 text-sidebar-active">
-                                <Wallet className="h-6 w-6" />
+                                <Package className="h-6 w-6" />
                             </div>
                             <div>
                                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                                    Abrir caja
+                                    Iniciar jornada
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                    Efectivo con el que sales a repartir. Solo una jornada por
-                                    día ({todayDateFormatted}).
+                                    Comienza tu jornada del día ({todayDateFormatted}). Solo una
+                                    jornada por día.
                                 </p>
                             </div>
                         </div>
@@ -198,50 +228,56 @@ export default function RepartoIndex({
                             </p>
                         )}
 
-                        <form onSubmit={submitOpenCaja} noValidate className="max-w-md">
-                            <AuthFormField
-                                id="initial_amount"
-                                label="Monto inicial de caja ($)"
-                                error={openForm.errors.initial_amount}
-                                icon={<Wallet className="h-4 w-4" />}
-                                inputProps={{
-                                    type: 'number',
-                                    min: 0,
-                                    step: '0.01',
-                                    placeholder: '$0.00 (opcional)',
-                                    value: openForm.data.initial_amount,
-                                    disabled: !canStartJornadaToday,
-                                    onChange: (e) => {
-                                        openForm.setData('initial_amount', e.target.value);
-                                        clearInitialAmountError();
-                                    },
-                                }}
-                            />
-                            <button
-                                type="submit"
-                                disabled={openForm.processing || !canStartJornadaToday}
-                                className="inline-flex h-11 items-center gap-2 rounded-xl bg-sidebar-active px-6 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <Play className="h-4 w-4" />
-                                {openForm.processing ? 'Abriendo...' : 'Iniciar jornada'}
-                            </button>
-                        </form>
+                        <button
+                            type="button"
+                            onClick={startJornada}
+                            disabled={openForm.processing || !canStartJornadaToday}
+                            className="inline-flex h-11 items-center gap-2 rounded-xl bg-sidebar-active px-6 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <Play className="h-4 w-4" />
+                            {openForm.processing ? 'Iniciando...' : 'Iniciar jornada'}
+                        </button>
                     </Card>
                 ) : (
                     <>
                         <Card className={`${cardClass} border-2 border-sidebar-active/30 p-4 sm:p-5`}>
-                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                                Efectivo en caja
-                            </p>
-                            <p className="mt-1 font-mono text-4xl font-bold text-sidebar-active">
-                                ${formatCurrency(sessionSummary?.expected ?? 0)}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                                {openSession.completed_orders_count} pedidos · inicio $
-                                {formatCurrency(openSession.initial_amount)}
-                                {openSession.orders_count > openSession.completed_orders_count &&
-                                    ` · +${openSession.orders_count - openSession.completed_orders_count} en curso`}
-                            </p>
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                        Saldo del día
+                                    </p>
+                                    <p
+                                        className={cn(
+                                            'mt-1 font-mono text-4xl font-bold',
+                                            netEarningsToday > 0.01
+                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                : netEarningsToday < -0.01
+                                                  ? 'text-rose-600 dark:text-rose-400'
+                                                  : 'text-sidebar-active',
+                                        )}
+                                    >
+                                        ${formatCurrency(Math.abs(netEarningsToday))}
+                                        {netEarningsToday < -0.01 && (
+                                            <span className="ml-1 text-sm font-semibold">en negativo</span>
+                                        )}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                        {openSession.completed_orders_count}{' '}
+                                        pedido{openSession.completed_orders_count !== 1 ? 's' : ''}
+                                        {openSession.orders_count > openSession.completed_orders_count &&
+                                            ` · +${openSession.orders_count - openSession.completed_orders_count} en curso`}
+                                    </p>
+                                </div>
+                                <div className="shrink-0 rounded-xl bg-rose-50 px-4 py-3 text-right dark:bg-rose-950/30">
+                                    <div className="flex items-center justify-end gap-1 text-[10px] font-semibold uppercase text-rose-700 dark:text-rose-400">
+                                        <TrendingDown className="h-3.5 w-3.5" />
+                                        Gastos del día
+                                    </div>
+                                    <p className="mt-1 text-xl font-bold text-rose-600 dark:text-rose-400">
+                                        ${formatCurrency(totalExpensesToday)}
+                                    </p>
+                                </div>
+                            </div>
 
                             <div className="mt-4 grid grid-cols-2 gap-3">
                                 <div className="rounded-xl bg-emerald-50 px-3 py-3 dark:bg-emerald-950/30">
@@ -264,25 +300,34 @@ export default function RepartoIndex({
                                             'bg-slate-50 dark:bg-[#1f1f1f]',
                                     )}
                                 >
-                                    <p className="text-[10px] font-semibold uppercase text-slate-600">
-                                        {companyName}
-                                    </p>
                                     {sessionSummary && Math.abs(sessionSummary.settlement) >= 0.01 ? (
-                                        <p
-                                            className={cn(
-                                                'mt-0.5 text-lg font-bold',
-                                                sessionSummary.owesClikio
-                                                    ? 'text-amber-700 dark:text-amber-400'
-                                                    : 'text-violet-700 dark:text-violet-400',
-                                            )}
-                                        >
-                                            {sessionSummary.owesClikio
-                                                ? `Le debes $${formatCurrency(sessionSummary.settlementAbs)}`
-                                                : `Te debe $${formatCurrency(sessionSummary.settlementAbs)}`}
-                                        </p>
+                                        <>
+                                            <p
+                                                className={cn(
+                                                    'text-xs font-semibold leading-tight',
+                                                    sessionSummary.owesClikio
+                                                        ? 'text-amber-800 dark:text-amber-300'
+                                                        : 'text-violet-800 dark:text-violet-300',
+                                                )}
+                                            >
+                                                {sessionSummary.owesClikio
+                                                    ? `Le debes a ${companyName}`
+                                                    : `Te debe ${companyName}`}
+                                            </p>
+                                            <p
+                                                className={cn(
+                                                    'mt-0.5 text-lg font-bold tabular-nums',
+                                                    sessionSummary.owesClikio
+                                                        ? 'text-amber-700 dark:text-amber-400'
+                                                        : 'text-violet-700 dark:text-violet-400',
+                                                )}
+                                            >
+                                                ${formatCurrency(sessionSummary.settlementAbs)}
+                                            </p>
+                                        </>
                                     ) : (
-                                        <p className="mt-0.5 text-lg font-bold text-slate-600 dark:text-slate-300">
-                                            Cuadrado
+                                        <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                            Cuadrado con {companyName}
                                         </p>
                                     )}
                                 </div>
@@ -308,6 +353,127 @@ export default function RepartoIndex({
                                     {closeForm.processing ? '...' : 'Finalizar jornada'}
                                 </button>
                             </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setExpenseModalOpen(true)}
+                                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/50"
+                            >
+                                <Receipt className="h-4 w-4 shrink-0" />
+                                Agregar gasto
+                            </button>
+
+                            <Dialog
+                                open={expenseModalOpen}
+                                onOpenChange={(open) => {
+                                    setExpenseModalOpen(open);
+                                    if (!open) {
+                                        expenseForm.reset();
+                                        expenseForm.clearErrors();
+                                    }
+                                }}
+                            >
+                                <DialogContent className="sm:max-w-md">
+                                    <DialogHeader>
+                                        <DialogTitle>Agregar gasto del día</DialogTitle>
+                                        <DialogDescription>
+                                            Registra un gasto sin salir de la jornada. Se restará de
+                                            tu saldo del día.
+                                        </DialogDescription>
+                                    </DialogHeader>
+
+                                    <form onSubmit={submitExpense} noValidate className="space-y-4">
+                                        <div>
+                                            <Label
+                                                htmlFor="jornada_expense_name"
+                                                className="mb-1 block text-xs text-slate-500"
+                                            >
+                                                Nombre del gasto
+                                            </Label>
+                                            <Input
+                                                id="jornada_expense_name"
+                                                value={expenseForm.data.name}
+                                                onChange={(e) =>
+                                                    expenseForm.setData('name', e.target.value)
+                                                }
+                                                placeholder="Ej. Gasolina, comida"
+                                                className={cn(
+                                                    expenseForm.errors.name && 'border-rose-500',
+                                                )}
+                                            />
+                                            {expenseForm.errors.name && (
+                                                <p className="mt-1 text-xs text-rose-600">
+                                                    {expenseForm.errors.name}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <Label
+                                                htmlFor="jornada_expense_amount"
+                                                className="mb-1 block text-xs text-slate-500"
+                                            >
+                                                Cantidad ($)
+                                            </Label>
+                                            <Input
+                                                id="jornada_expense_amount"
+                                                type="number"
+                                                min={0.01}
+                                                step="0.01"
+                                                value={expenseForm.data.amount}
+                                                onChange={(e) =>
+                                                    expenseForm.setData('amount', e.target.value)
+                                                }
+                                                placeholder="0.00"
+                                                className={cn(
+                                                    expenseForm.errors.amount && 'border-rose-500',
+                                                )}
+                                            />
+                                            {expenseForm.errors.amount && (
+                                                <p className="mt-1 text-xs text-rose-600">
+                                                    {expenseForm.errors.amount}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <Label
+                                                htmlFor="jornada_expense_concept"
+                                                className="mb-1 block text-xs text-slate-500"
+                                            >
+                                                Concepto (opcional)
+                                            </Label>
+                                            <Input
+                                                id="jornada_expense_concept"
+                                                value={expenseForm.data.concept}
+                                                onChange={(e) =>
+                                                    expenseForm.setData('concept', e.target.value)
+                                                }
+                                                placeholder="Detalle adicional"
+                                            />
+                                        </div>
+
+                                        <DialogFooter className="gap-2 sm:gap-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => setExpenseModalOpen(false)}
+                                                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={expenseForm.processing}
+                                                className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                            >
+                                                {expenseForm.processing
+                                                    ? 'Guardando...'
+                                                    : 'Guardar gasto'}
+                                            </button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
                         </Card>
 
                         {activeOrders.length > 0 && (

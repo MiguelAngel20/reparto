@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\CashSession;
+use App\Models\DailyExpense;
 use App\Models\User;
+use Carbon\Carbon;
 
 class DashboardService
 {
@@ -70,6 +72,49 @@ class DashboardService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{
+     *     range_label: string,
+     *     total_earnings: float,
+     *     total_expenses: float,
+     *     net_earnings: float
+     * }
+     */
+    public function weeklySummaryForUser(int $userId): array
+    {
+        $weekStart = now()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $weekEnd = now()->endOfWeek(Carbon::SUNDAY)->startOfDay();
+        $startKey = $weekStart->toDateString();
+        $endKey = $weekEnd->toDateString();
+
+        $totalEarnings = 0.0;
+
+        foreach (CashSession::query()->where('user_id', $userId)->get() as $session) {
+            $dateKey = $this->sessionDateKey($session);
+            if ($dateKey === '' || $dateKey < $startKey || $dateKey > $endKey) {
+                continue;
+            }
+
+            $totalEarnings += CashSessionSummary::forSession($session)['user_earnings'];
+        }
+
+        $totalExpenses = (float) DailyExpense::query()
+            ->where('user_id', $userId)
+            ->whereDate('expense_date', '>=', $startKey)
+            ->whereDate('expense_date', '<=', $endKey)
+            ->sum('amount');
+
+        $totalEarnings = round($totalEarnings, 2);
+        $totalExpenses = round($totalExpenses, 2);
+
+        return [
+            'range_label' => $weekStart->format('d/m/Y').' - '.$weekEnd->format('d/m/Y'),
+            'total_earnings' => $totalEarnings,
+            'total_expenses' => $totalExpenses,
+            'net_earnings' => round($totalEarnings - $totalExpenses, 2),
+        ];
     }
 
     protected function sessionDateKey(CashSession $session): string

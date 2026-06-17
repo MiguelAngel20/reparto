@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Reparto;
 
 use App\Http\Controllers\Controller;
 use App\Models\CashSession;
+use App\Models\DailyExpense;
 use App\Models\DeliveryOrder;
 use App\Services\CashSessionSummary;
 use Illuminate\Http\RedirectResponse;
@@ -59,6 +60,16 @@ class RepartoController extends Controller
 
         $today = now()->toDateString();
 
+        $totalExpensesToday = round((float) DailyExpense::query()
+            ->where('user_id', $user->id)
+            ->whereDate('expense_date', $today)
+            ->sum('amount'), 2);
+
+        $todayEarnings = $openSession
+            ? (float) (CashSessionSummary::forSession($openSession)['user_earnings'] ?? 0)
+            : 0.0;
+        $netEarningsToday = round($todayEarnings - $totalExpensesToday, 2);
+
         $activeOrders = DeliveryOrder::activeOrdersForUser($user->id)
             ->map(fn ($order) => $this->formatActiveOrderSummary($order))
             ->values()
@@ -74,6 +85,8 @@ class RepartoController extends Controller
             'todayBlockedMessage' => CashSession::dayRegisteredLabelForUser($user->id, $today),
             'userPercentage' => (float) $user->percentage,
             'companyName' => $user->company_name ?? 'Clikio',
+            'totalExpensesToday' => $totalExpensesToday,
+            'netEarningsToday' => $netEarningsToday,
         ]);
     }
 }

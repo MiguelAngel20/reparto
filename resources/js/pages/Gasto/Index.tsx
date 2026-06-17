@@ -1,13 +1,21 @@
 import AppLayout from '@/layouts/app-layout';
 import { Card } from '@/components/ui';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { confirmAction } from '@/lib/sweetalert';
 import { formatCurrency, cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Receipt, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
-import { useEffect } from 'react';
+import { Pencil, Receipt, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 type ExpenseRow = {
@@ -57,6 +65,14 @@ export default function GastoIndex({
         concept: '',
     });
 
+    const editForm = useForm({
+        name: '',
+        amount: '',
+        concept: '',
+    });
+
+    const [editingExpense, setEditingExpense] = useState<ExpenseRow | null>(null);
+
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
         if (flash?.error) toast.error(flash.error);
@@ -76,6 +92,7 @@ export default function GastoIndex({
                     'completedOrdersToday',
                     'hasOpenLiveSession',
                     'hasSessionToday',
+                    'expenses',
                 ],
             });
         }, 5000);
@@ -102,6 +119,32 @@ export default function GastoIndex({
         if (!confirmed) return;
 
         router.delete(`/gasto/${expense.id}`, { preserveScroll: true });
+    };
+
+    const openEditExpense = (expense: ExpenseRow) => {
+        setEditingExpense(expense);
+        editForm.setData({
+            name: expense.name,
+            amount: String(expense.amount),
+            concept: expense.concept ?? '',
+        });
+        editForm.clearErrors();
+    };
+
+    const closeEditExpense = () => {
+        setEditingExpense(null);
+        editForm.reset();
+        editForm.clearErrors();
+    };
+
+    const submitEditExpense = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingExpense) return;
+
+        editForm.put(`/gasto/${editingExpense.id}`, {
+            preserveScroll: true,
+            onSuccess: () => closeEditExpense(),
+        });
     };
 
     const netTone =
@@ -267,10 +310,18 @@ export default function GastoIndex({
                                             </p>
                                         )}
                                     </div>
-                                    <div className="flex shrink-0 items-center gap-2">
+                                    <div className="flex shrink-0 items-center gap-1">
                                         <p className="text-sm font-bold tabular-nums text-rose-600 dark:text-rose-400">
                                             −{expense.amount_label}
                                         </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => openEditExpense(expense)}
+                                            className="rounded p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
+                                            title="Editar gasto"
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => deleteExpense(expense)}
@@ -285,6 +336,94 @@ export default function GastoIndex({
                         </ul>
                     )}
                 </Card>
+
+                <Dialog
+                    open={editingExpense !== null}
+                    onOpenChange={(open) => {
+                        if (!open) closeEditExpense();
+                    }}
+                >
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Editar gasto</DialogTitle>
+                            <DialogDescription>
+                                Al guardar, se recalculan los gastos del día y tu saldo restante.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <form onSubmit={submitEditExpense} noValidate className="space-y-4">
+                            <div>
+                                <Label
+                                    htmlFor="edit_expense_name"
+                                    className="mb-1 block text-xs text-slate-500"
+                                >
+                                    Nombre del gasto
+                                </Label>
+                                <Input
+                                    id="edit_expense_name"
+                                    value={editForm.data.name}
+                                    onChange={(e) => editForm.setData('name', e.target.value)}
+                                    className={cn(editForm.errors.name && 'border-rose-500')}
+                                />
+                                {editForm.errors.name && (
+                                    <p className="mt-1 text-xs text-rose-600">{editForm.errors.name}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label
+                                    htmlFor="edit_expense_amount"
+                                    className="mb-1 block text-xs text-slate-500"
+                                >
+                                    Cantidad ($)
+                                </Label>
+                                <Input
+                                    id="edit_expense_amount"
+                                    type="number"
+                                    min={0.01}
+                                    step="0.01"
+                                    value={editForm.data.amount}
+                                    onChange={(e) => editForm.setData('amount', e.target.value)}
+                                    className={cn(editForm.errors.amount && 'border-rose-500')}
+                                />
+                                {editForm.errors.amount && (
+                                    <p className="mt-1 text-xs text-rose-600">{editForm.errors.amount}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label
+                                    htmlFor="edit_expense_concept"
+                                    className="mb-1 block text-xs text-slate-500"
+                                >
+                                    Concepto (opcional)
+                                </Label>
+                                <Input
+                                    id="edit_expense_concept"
+                                    value={editForm.data.concept}
+                                    onChange={(e) => editForm.setData('concept', e.target.value)}
+                                />
+                            </div>
+
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <button
+                                    type="button"
+                                    onClick={closeEditExpense}
+                                    className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={editForm.processing}
+                                    className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                >
+                                    {editForm.processing ? 'Guardando...' : 'Guardar cambios'}
+                                </button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );

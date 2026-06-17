@@ -14,7 +14,7 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { DollarSign, Package, Scale, TrendingUp } from 'lucide-react';
+import { DollarSign, Package, Receipt, Scale, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -30,6 +30,13 @@ type TodayStats = {
     user_earnings: number;
     clikio_commission: number;
     clikio_settlement: number;
+};
+
+type WeeklySummary = {
+    range_label: string;
+    total_earnings: number;
+    total_expenses: number;
+    net_earnings: number;
 };
 
 type ChartPeriod = 'week' | 'day' | 'month' | 'year';
@@ -56,6 +63,7 @@ interface DashboardProps {
     companyName: string;
     todayStats: TodayStats;
     dailyEarnings: DailyEarning[];
+    weeklySummary: WeeklySummary;
 }
 
 const WEEKDAY_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -230,6 +238,7 @@ export default function Dashboard({
     companyName,
     todayStats,
     dailyEarnings,
+    weeklySummary,
 }: DashboardProps) {
     const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('week');
     const [dayRange, setDayRange] = useState<DayRange>(defaultDayRange);
@@ -286,6 +295,42 @@ export default function Dashboard({
         },
     ];
 
+    const weeklyCards = [
+        {
+            title: `Ganancias totales con ${companyName}`,
+            subtitle: weeklySummary.range_label,
+            value: `$${formatCurrency(weeklySummary.total_earnings)}`,
+            icon: TrendingUp,
+            color: 'text-emerald-600',
+            valueClass: 'text-emerald-600 dark:text-emerald-400',
+        },
+        {
+            title: 'Mis gastos totales',
+            subtitle: weeklySummary.range_label,
+            value: `$${formatCurrency(weeklySummary.total_expenses)}`,
+            icon: TrendingDown,
+            color: 'text-rose-600',
+            valueClass: 'text-rose-600 dark:text-rose-400',
+        },
+        {
+            title: 'Total disponible',
+            subtitle: weeklySummary.range_label,
+            value: `$${formatCurrency(Math.abs(weeklySummary.net_earnings))}`,
+            icon: Wallet,
+            color: 'text-sidebar-active',
+            valueClass:
+                weeklySummary.net_earnings > 0.01
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : weeklySummary.net_earnings < -0.01
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : undefined,
+            extra:
+                weeklySummary.net_earnings < -0.01 ? (
+                    <span className="ml-1 text-sm font-semibold">en negativo</span>
+                ) : null,
+        },
+    ];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs} title="Dashboard">
             <Head title="Dashboard" />
@@ -308,6 +353,36 @@ export default function Dashboard({
                                     )}
                                 >
                                     {card.value}
+                                </p>
+                            </div>
+                            <card.icon className={`h-8 w-8 shrink-0 ${card.color}`} />
+                        </div>
+                    </Card>
+                ))}
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                {weeklyCards.map((card) => (
+                    <Card
+                        key={card.title}
+                        className="border border-slate-200/80 bg-white p-5 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626]"
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                    {card.title}
+                                </p>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                    {card.subtitle}
+                                </p>
+                                <p
+                                    className={cn(
+                                        'mt-2 text-2xl font-semibold text-slate-900 dark:text-white sm:text-3xl',
+                                        card.valueClass,
+                                    )}
+                                >
+                                    {card.value}
+                                    {card.extra}
                                 </p>
                             </div>
                             <card.icon className={`h-8 w-8 shrink-0 ${card.color}`} />
