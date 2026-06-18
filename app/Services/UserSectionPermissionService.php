@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\UserSectionPermission;
 use App\Support\UserSection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class UserSectionPermissionService
 {
@@ -95,7 +96,9 @@ class UserSectionPermissionService
         }
 
         if (UserSection::isGranular($section)) {
-            $this->syncGranularRow($user, $section, $data);
+            if ($this->supportsGranularColumns()) {
+                $this->syncGranularRow($user, $section, $data);
+            }
 
             return;
         }
@@ -122,7 +125,10 @@ class UserSectionPermissionService
                 $data = $permissions[$section] ?? [];
 
                 if (UserSection::isGranular($section)) {
-                    $this->syncGranularRow($user, $section, $data);
+                    if ($this->supportsGranularColumns()) {
+                        $this->syncGranularRow($user, $section, $data);
+                    }
+
                     continue;
                 }
 
@@ -137,11 +143,6 @@ class UserSectionPermissionService
                     [
                         'can_view' => $canView,
                         'can_edit' => $canEdit,
-                        'can_create' => false,
-                        'can_update' => false,
-                        'can_delete' => false,
-                        'can_payment' => false,
-                        'can_liquidate' => false,
                     ],
                 );
             }
@@ -172,7 +173,9 @@ class UserSectionPermissionService
             if (UserSection::isGranular($section)) {
                 foreach (UserSection::granularActions($section) as $action) {
                     $column = 'can_'.$action;
-                    $entry[$column] = (bool) ($row?->{$column});
+                    $entry[$column] = $this->supportsGranularColumns()
+                        ? (bool) ($row?->{$column})
+                        : false;
                 }
                 $entry['action_labels'] = UserSection::granularActionLabels($section);
             }
@@ -197,11 +200,13 @@ class UserSectionPermissionService
 
         if (UserSection::isGranular($section)) {
             return $row->can_view
-                || $row->can_create
-                || $row->can_update
-                || $row->can_delete
-                || $row->can_payment
-                || $row->can_liquidate;
+                || ($this->supportsGranularColumns() && (
+                    $row->can_create
+                    || $row->can_update
+                    || $row->can_delete
+                    || $row->can_payment
+                    || $row->can_liquidate
+                ));
         }
 
         return $row->can_edit || $row->can_view;
@@ -242,6 +247,10 @@ class UserSectionPermissionService
 
         $row = $this->permissionRow($user, $section);
 
+        if (! $this->supportsGranularColumns()) {
+            return false;
+        }
+
         return (bool) ($row?->{$column});
     }
 
@@ -273,6 +282,10 @@ class UserSectionPermissionService
      */
     private function syncGranularRow(User $user, string $section, array $data): void
     {
+        if (! $this->supportsGranularColumns()) {
+            return;
+        }
+
         $canView = (bool) ($data['can_view'] ?? false);
         $actions = [];
 
@@ -305,6 +318,17 @@ class UserSectionPermissionService
      */
     private function granularMapFromRow(?UserSectionPermission $row): array
     {
+        if (! $this->supportsGranularColumns()) {
+            return [
+                'view' => (bool) ($row?->can_view),
+                'create' => false,
+                'update' => false,
+                'delete' => false,
+                'payment' => false,
+                'liquidate' => false,
+            ];
+        }
+
         return [
             'view' => (bool) ($row?->can_view),
             'create' => (bool) ($row?->can_create),
@@ -347,5 +371,11 @@ class UserSectionPermissionService
             ->where('user_id', $user->id)
             ->where('section', $section)
             ->first();
+    }
+
+    private function supportsGranularColumns(): bool
+    {
+        return Schema::hasTable('user_section_permissions')
+            && Schema::hasColumn('user_section_permissions', 'can_create');
     }
 }
