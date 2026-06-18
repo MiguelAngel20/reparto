@@ -3,13 +3,20 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\UpdateUserSectionPermissionsRequest;
 use App\Models\User;
+use App\Services\UserSectionPermissionService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class UserController extends Controller
 {
+    public function __construct(
+        private readonly UserSectionPermissionService $sectionPermissions,
+    ) {}
+
     public function index(Request $request): Response
     {
         abort_unless($request->user()?->isAdmin(), 403);
@@ -37,6 +44,50 @@ class UserController extends Controller
         ]);
     }
 
+    public function editPermissions(Request $request, User $user): Response
+    {
+        abort_unless($request->user()?->isAdmin(), 403);
+
+        if ($user->isAdmin()) {
+            return Inertia::render('settings/Users/Permissions', [
+                'user' => $this->formatUser($user),
+                'permissions' => $this->sectionPermissions->editableMatrixForUser($user),
+                'isAdminUser' => true,
+            ]);
+        }
+
+        $this->sectionPermissions->applyDefaultPermissions($user);
+
+        return Inertia::render('settings/Users/Permissions', [
+            'user' => $this->formatUser($user),
+            'permissions' => $this->sectionPermissions->editableMatrixForUser($user),
+            'isAdminUser' => false,
+        ]);
+    }
+
+    public function updatePermissions(
+        UpdateUserSectionPermissionsRequest $request,
+        User $user,
+    ): RedirectResponse {
+        abort_unless($request->user()?->isAdmin(), 403);
+
+        if ($user->isAdmin()) {
+            return back()->with('error', 'El administrador siempre tiene acceso completo.');
+        }
+
+        $this->sectionPermissions->syncPermissions(
+            $user,
+            $request->validated('permissions'),
+        );
+
+        return redirect()
+            ->route('settings.users.permissions', $user)
+            ->with('success', 'Permisos actualizados correctamente.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function formatUser(User $user): array
     {
         return [

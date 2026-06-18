@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\UserSectionPermissionService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -17,6 +18,9 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $sectionPermissions = $user
+            ? app(UserSectionPermissionService::class)->mapForUser($user)
+            : [];
 
         return [
             ...parent::share($request),
@@ -34,6 +38,7 @@ class HandleInertiaRequests extends Middleware
                     'permissions' => $user->isAdmin() ? ['*'] : [],
                 ] : null,
             ],
+            'sectionPermissions' => $sectionPermissions,
             'notifications' => [],
             'unreadNotificationsCount' => 0,
             'flash' => [

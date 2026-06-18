@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { type NavItem } from '@/types';
 import AppLogo from './app-logo';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useSectionPermissions } from '@/hooks/useSectionAccess';
 import {
     ClipboardList,
     ChevronDown,
@@ -23,6 +24,7 @@ import {
     Receipt,
     Scale,
     Settings,
+    CreditCard,
     X,
 } from 'lucide-react';
 
@@ -36,16 +38,18 @@ interface AppSidebarProps {
 }
 
 const allNavItems: NavItem[] = [
-    { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
-    { title: 'Iniciar jornada', href: '/reparto', icon: Package },
-    { title: 'Captura manual', href: '/captura-manual', icon: ClipboardList },
-    { title: 'Cuenta empresa', href: '/cuenta-empresa', icon: Scale },
-    { title: 'Gasto', href: '/gasto', icon: Receipt },
+    { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, section: 'dashboard' },
+    { title: 'Iniciar jornada', href: '/reparto', icon: Package, section: 'reparto' },
+    { title: 'Captura manual', href: '/captura-manual', icon: ClipboardList, section: 'manual_capture' },
+    { title: 'Cuenta empresa', href: '/cuenta-empresa', icon: Scale, section: 'company_balance' },
+    { title: 'Gasto', href: '/gasto', icon: Receipt, section: 'gasto' },
+    { title: 'Cuenta tarjeta', href: '/cuenta-tarjeta', icon: CreditCard, section: 'card_account' },
 ];
 
 export function AppSidebar({ collapsed = false, narrow = false, asDrawer = false, onClose }: AppSidebarProps) {
     const { url } = usePage();
     const { hasPermission, user } = usePermissions();
+    const { canView } = useSectionPermissions();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
     const pathnameRef = useRef<string>('');
@@ -54,16 +58,19 @@ export function AppSidebar({ collapsed = false, narrow = false, asDrawer = false
     const pathname = url.split('?')[0];
 
     const navItems = React.useMemo(() => {
-        return allNavItems.map((item) => {
-            if (!item.submenu?.length) {
-                return item;
-            }
-            const visibleSubitems = item.submenu.filter(
-                (sub) => !sub.permission || hasPermission(sub.permission),
-            );
-            return visibleSubitems.length ? { ...item, submenu: visibleSubitems } : null;
-        }).filter((item): item is NavItem => item !== null);
-    }, [hasPermission]);
+        return allNavItems
+            .filter((item) => !item.section || canView(item.section))
+            .map((item) => {
+                if (!item.submenu?.length) {
+                    return item;
+                }
+                const visibleSubitems = item.submenu.filter(
+                    (sub) => !sub.permission || hasPermission(sub.permission),
+                );
+                return visibleSubitems.length ? { ...item, submenu: visibleSubitems } : null;
+            })
+            .filter((item): item is NavItem => item !== null);
+    }, [hasPermission, canView]);
 
     // Abrir automáticamente el submenú si alguna de sus rutas está activa
     // Solo se ejecuta cuando cambia el pathname, no cuando el usuario hace clic manualmente

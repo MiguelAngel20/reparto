@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { formatCurrency, cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { useSectionAccess } from '@/hooks/useSectionAccess';
 import {
     SessionHistoryList,
     type SessionHistoryItem,
@@ -94,6 +95,8 @@ export default function RepartoIndex({
     totalExpensesToday,
     netEarningsToday,
 }: RepartoIndexProps) {
+    const { canEdit } = useSectionAccess('reparto');
+    const { canEdit: canEditGasto } = useSectionAccess('gasto');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const openForm = useForm({});
@@ -228,6 +231,7 @@ export default function RepartoIndex({
                             </p>
                         )}
 
+                        {canEdit && (
                         <button
                             type="button"
                             onClick={startJornada}
@@ -237,6 +241,7 @@ export default function RepartoIndex({
                             <Play className="h-4 w-4" />
                             {openForm.processing ? 'Iniciando...' : 'Iniciar jornada'}
                         </button>
+                        )}
                     </Card>
                 ) : (
                     <>
@@ -333,6 +338,7 @@ export default function RepartoIndex({
                                 </div>
                             </div>
 
+                            {canEdit && (
                             <div className="mt-4 grid grid-cols-1 gap-2 min-[350px]:grid-cols-2">
                                 <button
                                     type="button"
@@ -353,7 +359,10 @@ export default function RepartoIndex({
                                     {closeForm.processing ? '...' : 'Finalizar jornada'}
                                 </button>
                             </div>
+                            )}
 
+                            {canEditGasto && (
+                            <>
                             <button
                                 type="button"
                                 onClick={() => setExpenseModalOpen(true)}
@@ -474,10 +483,12 @@ export default function RepartoIndex({
                                     </form>
                                 </DialogContent>
                             </Dialog>
+                            </>
+                            )}
                         </Card>
 
                         {activeOrders.length > 0 && (
-                            <ActiveOrdersBar orders={activeOrders} />
+                            <ActiveOrdersBar orders={activeOrders} showNewOrderButton={canEdit} />
                         )}
 
                         <Card className={`${cardClass} p-4 sm:p-5`}>
@@ -508,7 +519,9 @@ export default function RepartoIndex({
                                                 <th className="px-4 py-3 text-right">
                                                     Cobro al cliente
                                                 </th>
-                                                <th className="px-4 py-3 text-center">Acciones</th>
+                                                {canEdit && (
+                                                    <th className="px-4 py-3 text-center">Acciones</th>
+                                                )}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-[#333]">
@@ -550,6 +563,7 @@ export default function RepartoIndex({
                                                     <td className="px-4 py-3 text-right font-medium text-slate-800 dark:text-slate-100">
                                                         ${formatCurrency(row.client_charge)}
                                                     </td>
+                                                    {canEdit && (
                                                     <td className="px-4 py-3">
                                                         <div className="flex justify-center">
                                                             <Link
@@ -561,6 +575,7 @@ export default function RepartoIndex({
                                                             </Link>
                                                         </div>
                                                     </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -601,6 +616,7 @@ export default function RepartoIndex({
                                                     {formatCurrency(orderTableTotals.client_charge)}
                                                 </td>
                                                 <td />
+                                                {canEdit && <td />}
                                             </tr>
                                         </tfoot>
                                     </table>

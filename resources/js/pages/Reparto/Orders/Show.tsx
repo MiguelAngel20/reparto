@@ -29,6 +29,7 @@ import {
 } from '@/components/reparto/active-orders-bar';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { useSectionAccess } from '@/hooks/useSectionAccess';
 import {
     Collapsible,
     CollapsibleContent,
@@ -120,6 +121,7 @@ function ShowOrderPage({
     isEditingCompleted = false,
     activeOrders = [],
 }: ShowOrderProps) {
+    const { canEdit } = useSectionAccess('reparto');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const elapsed = useElapsedTime(isEditingCompleted ? null : order.started_at);
@@ -384,12 +386,13 @@ function ShowOrderPage({
                 ← Reparto
             </Link>
 
-            <div className="flex w-full flex-col gap-3 max-[499px]:pb-28">
+            <div className="flex w-full flex-col gap-3 max-[499px]:pb-[calc(11rem+env(safe-area-inset-bottom,0px))]">
                 {!isEditingCompleted && activeOrders.length > 0 && (
                     <ActiveOrdersBar
                         orders={activeOrders}
                         currentOrderId={order.id}
                         compact
+                        showNewOrderButton={canEdit}
                     />
                 )}
 
@@ -623,7 +626,7 @@ function ShowOrderPage({
                     )}
                 </Card>
 
-                <div className="sticky bottom-0 z-10 -mx-1 rounded-t-2xl border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur max-[499px]:fixed max-[499px]:inset-x-0 max-[499px]:bottom-16 max-[499px]:mx-0 max-[499px]:rounded-t-lg max-[499px]:p-2 dark:border-[#333] dark:bg-[#262626]/95">
+                <div className="sticky bottom-0 z-30 -mx-1 rounded-t-2xl border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur max-[499px]:fixed max-[499px]:inset-x-0 max-[499px]:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] max-[499px]:mx-0 max-[499px]:rounded-t-lg max-[499px]:p-3 dark:border-[#333] dark:bg-[#262626]/95">
                     <div className="flex items-center justify-between gap-2">
                         <span className="text-sm text-slate-500">
                             Total al cliente
@@ -637,14 +640,15 @@ function ShowOrderPage({
                             {Object.values(form.errors)[0]}
                         </p>
                     )}
-                    <div className="mt-3 grid gap-2 max-[499px]:mt-1.5 max-[499px]:grid-cols-2 max-[499px]:gap-1.5">
+                    {canEdit && (
+                    <div className="mt-3 grid gap-2 max-[499px]:mt-2 max-[499px]:grid-cols-2 max-[499px]:gap-2">
                         {isEditingCompleted ? (
                             <>
                                 <button
                                     type="button"
                                     onClick={saveCompletedOrder}
                                     disabled={form.processing}
-                                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:gap-1 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
+                                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-10 max-[499px]:gap-1.5 max-[499px]:rounded-lg max-[499px]:text-xs"
                                 >
                                     <CheckCircle2 className="h-5 w-5 max-[499px]:h-3.5 max-[499px]:w-3.5" />
                                     <span className="max-[499px]:truncate">
@@ -658,7 +662,7 @@ function ShowOrderPage({
                                 </button>
                                 <Link
                                     href="/reparto"
-                                    className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 dark:border-[#3a3a3a] dark:text-slate-200 max-[499px]:h-8 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
+                                    className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 dark:border-[#3a3a3a] dark:text-slate-200 max-[499px]:h-10 max-[499px]:rounded-lg max-[499px]:text-xs"
                                 >
                                     Volver
                                 </Link>
@@ -669,7 +673,7 @@ function ShowOrderPage({
                                     type="button"
                                     onClick={finalizeOrder}
                                     disabled={form.processing}
-                                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:gap-1 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
+                                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-10 max-[499px]:gap-1.5 max-[499px]:rounded-lg max-[499px]:text-xs"
                                 >
                                     <CheckCircle2 className="h-5 w-5 max-[499px]:h-3.5 max-[499px]:w-3.5" />
                                     <span className="max-[499px]:truncate">
@@ -685,7 +689,7 @@ function ShowOrderPage({
                                     type="button"
                                     onClick={cancelOrder}
                                     disabled={form.processing}
-                                    className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-rose-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-8 max-[499px]:rounded-lg max-[499px]:px-1 max-[499px]:text-[10px]"
+                                    className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-rose-600 text-sm font-semibold text-white disabled:opacity-50 max-[499px]:h-10 max-[499px]:rounded-lg max-[499px]:text-xs"
                                 >
                                     <span className="max-[499px]:truncate">
                                         <span className="max-[499px]:hidden">Cancelar pedido</span>
@@ -695,6 +699,7 @@ function ShowOrderPage({
                             </>
                         )}
                     </div>
+                    )}
                 </div>
             </div>
         </AppLayout>

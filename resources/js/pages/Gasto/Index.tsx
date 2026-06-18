@@ -14,6 +14,7 @@ import { confirmAction } from '@/lib/sweetalert';
 import { formatCurrency, cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { useSectionAccess } from '@/hooks/useSectionAccess';
 import { Pencil, Receipt, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -56,6 +57,7 @@ export default function GastoIndex({
     hasSessionToday,
     expenses,
 }: GastoIndexProps) {
+    const { canEdit } = useSectionAccess('gasto');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
 
@@ -215,6 +217,7 @@ export default function GastoIndex({
                     </div>
                 </Card>
 
+                {canEdit && (
                 <Card className={cardClass}>
                     <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                         Registrar gasto
@@ -280,6 +283,7 @@ export default function GastoIndex({
                         </button>
                     </form>
                 </Card>
+                )}
 
                 <Card className={cardClass}>
                     <h2 className="text-base font-semibold text-slate-900 dark:text-white">
@@ -314,6 +318,8 @@ export default function GastoIndex({
                                         <p className="text-sm font-bold tabular-nums text-rose-600 dark:text-rose-400">
                                             −{expense.amount_label}
                                         </p>
+                                        {canEdit && (
+                                        <>
                                         <button
                                             type="button"
                                             onClick={() => openEditExpense(expense)}
@@ -330,6 +336,8 @@ export default function GastoIndex({
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </button>
+                                        </>
+                                        )}
                                     </div>
                                 </li>
                             ))}

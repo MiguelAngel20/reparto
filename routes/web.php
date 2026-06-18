@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\CardAccountController;
 use App\Http\Controllers\CompanyBalanceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GastoController;
@@ -13,6 +14,8 @@ use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\UserController;
 use App\Models\CashSession;
+use App\Services\UserSectionPermissionService;
+use App\Support\UserSection;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -20,10 +23,7 @@ Route::get('/', function () {
         return redirect()->route('login');
     }
 
-    // Con jornada abierta se entra directo a la pantalla de jornada en curso
-    return CashSession::openLiveForUser(auth()->id())
-        ? redirect()->route('reparto.index')
-        : redirect()->route('dashboard');
+    return redirect(app(UserSectionPermissionService::class)->defaultLandingUrl(auth()->user()));
 });
 
 Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
@@ -43,52 +43,84 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    Route::prefix('gasto')->name('gasto.')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->middleware('section:'.UserSection::DASHBOARD.',view')
+        ->name('dashboard');
+
+    Route::prefix('gasto')->name('gasto.')->middleware('section:'.UserSection::GASTO.',view')->group(function () {
         Route::get('/', [GastoController::class, 'index'])->name('index');
-        Route::post('/', [GastoController::class, 'store'])->name('store');
-        Route::put('/{expense}', [GastoController::class, 'update'])->name('update');
-        Route::delete('/{expense}', [GastoController::class, 'destroy'])->name('destroy');
+        Route::middleware('section:'.UserSection::GASTO.',edit')->group(function () {
+            Route::post('/', [GastoController::class, 'store'])->name('store');
+            Route::put('/{expense}', [GastoController::class, 'update'])->name('update');
+            Route::delete('/{expense}', [GastoController::class, 'destroy'])->name('destroy');
+        });
     });
 
-    Route::prefix('cuenta-empresa')->name('company-balance.')->group(function () {
+    Route::prefix('cuenta-tarjeta')->name('card-account.')->middleware('section:'.UserSection::CARD_ACCOUNT.',view')->group(function () {
+        Route::get('/', [CardAccountController::class, 'index'])->name('index');
+        Route::post('/compras', [CardAccountController::class, 'storePurchase'])
+            ->middleware('section:'.UserSection::CARD_ACCOUNT.',create')
+            ->name('purchases.store');
+        Route::post('/abonos', [CardAccountController::class, 'storePayment'])
+            ->middleware('section:'.UserSection::CARD_ACCOUNT.',payment')
+            ->name('payments.store');
+        Route::put('/movimientos/{movement}', [CardAccountController::class, 'update'])
+            ->middleware('section:'.UserSection::CARD_ACCOUNT.',update')
+            ->name('movements.update');
+        Route::delete('/movimientos/{movement}', [CardAccountController::class, 'destroy'])
+            ->middleware('section:'.UserSection::CARD_ACCOUNT.',delete')
+            ->name('movements.destroy');
+        Route::post('/liquidar', [CardAccountController::class, 'liquidate'])
+            ->middleware('section:'.UserSection::CARD_ACCOUNT.',liquidate')
+            ->name('liquidate');
+    });
+
+    Route::prefix('cuenta-empresa')->name('company-balance.')->middleware('section:'.UserSection::COMPANY_BALANCE.',view')->group(function () {
         Route::get('/', [CompanyBalanceController::class, 'index'])->name('index');
-        Route::post('/saldo', [CompanyBalanceController::class, 'storeEntry'])->name('entry.store');
-        Route::put('/saldo/{movement}', [CompanyBalanceController::class, 'updateEntry'])->name('entry.update');
-        Route::put('/movimientos/{movement}', [CompanyBalanceController::class, 'updateMovement'])->name('movement.update');
-        Route::put('/movimientos/{movement}/saldo-resultante', [CompanyBalanceController::class, 'correctBalanceAfter'])->name('movement.correct-balance');
-        Route::post('/ajustar', [CompanyBalanceController::class, 'adjustBalance'])->name('adjust');
-        Route::post('/liquidar', [CompanyBalanceController::class, 'liquidate'])->name('liquidate');
+        Route::middleware('section:'.UserSection::COMPANY_BALANCE.',edit')->group(function () {
+            Route::post('/saldo', [CompanyBalanceController::class, 'storeEntry'])->name('entry.store');
+            Route::put('/saldo/{movement}', [CompanyBalanceController::class, 'updateEntry'])->name('entry.update');
+            Route::put('/movimientos/{movement}', [CompanyBalanceController::class, 'updateMovement'])->name('movement.update');
+            Route::put('/movimientos/{movement}/saldo-resultante', [CompanyBalanceController::class, 'correctBalanceAfter'])->name('movement.correct-balance');
+            Route::post('/ajustar', [CompanyBalanceController::class, 'adjustBalance'])->name('adjust');
+            Route::post('/liquidar', [CompanyBalanceController::class, 'liquidate'])->name('liquidate');
+        });
     });
 
-    Route::prefix('captura-manual')->name('manual-capture.')->group(function () {
+    Route::prefix('captura-manual')->name('manual-capture.')->middleware('section:'.UserSection::MANUAL_CAPTURE.',view')->group(function () {
         Route::get('/', [ManualCaptureController::class, 'index'])->name('index');
-        Route::post('/sesion', [ManualCaptureSessionController::class, 'store'])->name('session.store');
         Route::get('/jornada/{session}', [ManualCaptureController::class, 'edit'])->name('edit');
-        Route::post('/jornada/{session}/cerrar', [ManualCaptureSessionController::class, 'close'])->name('session.close');
-        Route::post('/jornada/{session}/pedidos', [ManualCaptureController::class, 'storeEntry'])->name('entries.store');
-        Route::put('/jornada/{session}/pedidos/{order}', [ManualCaptureController::class, 'updateEntry'])->name('entries.update');
-        Route::delete('/jornada/{session}/pedidos/{order}', [ManualCaptureController::class, 'destroyEntry'])->name('entries.destroy');
+        Route::middleware('section:'.UserSection::MANUAL_CAPTURE.',edit')->group(function () {
+            Route::post('/sesion', [ManualCaptureSessionController::class, 'store'])->name('session.store');
+            Route::post('/jornada/{session}/cerrar', [ManualCaptureSessionController::class, 'close'])->name('session.close');
+            Route::post('/jornada/{session}/pedidos', [ManualCaptureController::class, 'storeEntry'])->name('entries.store');
+            Route::put('/jornada/{session}/pedidos/{order}', [ManualCaptureController::class, 'updateEntry'])->name('entries.update');
+            Route::delete('/jornada/{session}/pedidos/{order}', [ManualCaptureController::class, 'destroyEntry'])->name('entries.destroy');
+        });
     });
 
-    Route::prefix('reparto')->name('reparto.')->group(function () {
+    Route::prefix('reparto')->name('reparto.')->middleware('section:'.UserSection::REPARTO.',view')->group(function () {
         Route::get('/', [RepartoController::class, 'index'])->name('index');
-        Route::post('/caja', [CashSessionController::class, 'store'])->name('caja.store');
-        Route::post('/caja/cerrar', [CashSessionController::class, 'close'])->name('caja.close');
-        Route::post('/pedidos/iniciar', [DeliveryOrderController::class, 'start'])->name('orders.start');
         Route::get('/pedidos/{order}', [DeliveryOrderController::class, 'show'])->name('orders.show');
         Route::get('/pedidos/{order}/editar', [DeliveryOrderController::class, 'edit'])->name('orders.edit');
-        Route::put('/pedidos/{order}', [DeliveryOrderController::class, 'update'])->name('orders.update');
-        Route::put('/pedidos/{order}/actualizar', [DeliveryOrderController::class, 'updateCompleted'])->name('orders.update-completed');
-        Route::post('/pedidos/{order}/finalizar', [DeliveryOrderController::class, 'complete'])->name('orders.complete');
-        Route::post('/pedidos/{order}/cancelar', [DeliveryOrderController::class, 'cancel'])->name('orders.cancel');
+        Route::middleware('section:'.UserSection::REPARTO.',edit')->group(function () {
+            Route::post('/caja', [CashSessionController::class, 'store'])->name('caja.store');
+            Route::post('/caja/cerrar', [CashSessionController::class, 'close'])->name('caja.close');
+            Route::post('/pedidos/iniciar', [DeliveryOrderController::class, 'start'])->name('orders.start');
+            Route::put('/pedidos/{order}', [DeliveryOrderController::class, 'update'])->name('orders.update');
+            Route::put('/pedidos/{order}/actualizar', [DeliveryOrderController::class, 'updateCompleted'])->name('orders.update-completed');
+            Route::post('/pedidos/{order}/finalizar', [DeliveryOrderController::class, 'complete'])->name('orders.complete');
+            Route::post('/pedidos/{order}/cancelar', [DeliveryOrderController::class, 'cancel'])->name('orders.cancel');
+        });
     });
 
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::get('/', [SettingsController::class, 'index'])->name('index');
         Route::get('/users', [UserController::class, 'index'])->name('users');
+        Route::get('/users/{user}/permisos', [UserController::class, 'editPermissions'])->name('users.permissions');
+        Route::put('/users/{user}/permisos', [UserController::class, 'updatePermissions'])->name('users.permissions.update');
         Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
         Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');

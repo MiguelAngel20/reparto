@@ -6,6 +6,7 @@ import { confirmAction } from '@/lib/sweetalert';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { useSectionAccess } from '@/hooks/useSectionAccess';
 import { Pencil, Scale, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -120,6 +121,7 @@ export default function CompanyBalanceIndex({
     movements,
     perPageOptions = [...PER_PAGE_OPTIONS],
 }: CompanyBalanceIndexProps) {
+    const { canEdit } = useSectionAccess('company_balance');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -302,6 +304,7 @@ export default function CompanyBalanceIndex({
                         </div>
                     </div>
 
+                    {canEdit && (
                     <div className="mt-4 flex flex-wrap gap-2">
                         <button
                             type="button"
@@ -322,6 +325,7 @@ export default function CompanyBalanceIndex({
                             </button>
                         )}
                     </div>
+                    )}
                 </Card>
 
                 {showAdjustForm && (
@@ -424,6 +428,7 @@ export default function CompanyBalanceIndex({
                     </Card>
                 )}
 
+                {canEdit && (
                 <Card className={cn(cardClass, editingId && 'ring-2 ring-sidebar-active/30')}>
                     <div className="flex items-start justify-between gap-3">
                         <div>
@@ -534,6 +539,7 @@ export default function CompanyBalanceIndex({
                         </button>
                     </form>
                 </Card>
+                )}
 
                 <Card className={cardClass}>
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -629,7 +635,7 @@ export default function CompanyBalanceIndex({
                                                     </p>
                                                 </div>
                                             )}
-                                            {movement.editable && (
+                                            {movement.editable && canEdit && (
                                                 <button
                                                     type="button"
                                                     onClick={() => startEditing(movement)}

@@ -10,6 +10,7 @@ export default function SettingsSidebar() {
 
     const isAdmin = hasRole('admin');
     const isUsers = url.startsWith('/settings/users');
+    const isPermissions = /\/settings\/users\/\d+\/permisos/.test(url);
     const isProfile = url.startsWith('/settings/profile');
 
     return (
@@ -20,7 +21,7 @@ export default function SettingsSidebar() {
                         href="/settings/users"
                         className={cn(
                             'inline-flex w-full items-center justify-start gap-2 rounded-lg px-2.5 py-1.5 text-[16px] transition-colors',
-                            isUsers
+                            isUsers || isPermissions
                                 ? 'bg-sidebar-active text-white'
                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-[#2a2a2a] dark:hover:text-white',
                         )}

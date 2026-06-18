@@ -7,15 +7,24 @@ export interface NavItem {
     title: string;
     href?: string;
     icon?: React.ComponentType<{ className?: string }>;
+    section?: SectionKey;
     onClick?: boolean;
     badge?: string;
-    permission?: string | null; // Permiso requerido para mostrar el item
+    permission?: string | null;
     submenu?: {
         title: string;
         href: string;
-        permission?: string | null; // Permiso requerido para mostrar el subitem
+        permission?: string | null;
     }[];
 }
+
+export type SectionKey =
+    | 'dashboard'
+    | 'reparto'
+    | 'manual_capture'
+    | 'company_balance'
+    | 'gasto'
+    | 'card_account';
 
 export interface SharedData {
     auth?: {

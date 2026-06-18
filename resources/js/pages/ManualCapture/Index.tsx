@@ -7,6 +7,7 @@ import { confirmFinalizeManualCapture } from '@/lib/sweetalert';
 import { formatCurrency, cn, localDateInputValue } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { useSectionAccess } from '@/hooks/useSectionAccess';
 import {
     ArrowLeft,
     CheckCircle2,
@@ -89,6 +90,7 @@ export default function ManualCaptureIndex({
     userPercentage,
     companyName,
 }: ManualCaptureIndexProps) {
+    const { canEdit } = useSectionAccess('manual_capture');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -285,6 +287,7 @@ export default function ManualCaptureIndex({
             <div className="flex w-full flex-col gap-6">
                 {!activeSession ? (
                     <>
+                        {canEdit && (
                         <Card className={cardClass}>
                             <form onSubmit={submitStartCapture} className="max-w-md space-y-4">
                                 <div>
@@ -334,12 +337,13 @@ export default function ManualCaptureIndex({
                                 </button>
                             </form>
                         </Card>
+                        )}
 
                         {savedSessions.length > 0 && (
                             <SessionHistoryList
                                 sessions={savedSessions}
                                 companyName={companyName}
-                                showEditButton
+                                showEditButton={canEdit}
                             />
                         )}
                     </>
@@ -371,7 +375,7 @@ export default function ManualCaptureIndex({
                                         : ' · edita los pedidos de este día'}
                                 </p>
                             </div>
-                            {isManualCaptureOpen && (
+                            {isManualCaptureOpen && canEdit && (
                                 <button
                                     type="button"
                                     onClick={submitCloseCapture}
@@ -433,7 +437,7 @@ export default function ManualCaptureIndex({
                             </div>
                         )}
 
-                        {(isManualSession || editingId) ? (
+                        {(isManualSession || editingId) && canEdit ? (
                         <Card className={cardClass}>
                             <div className="mb-3 flex items-center justify-between">
                                 <p className="text-sm font-semibold">
@@ -605,8 +609,8 @@ export default function ManualCaptureIndex({
                                     entries={entries}
                                     tableTotals={tableTotals}
                                     companyName={companyName}
-                                    onEdit={loadEntry}
-                                    onDelete={isManualSession ? deleteEntry : undefined}
+                                    onEdit={canEdit ? loadEntry : undefined}
+                                    onDelete={canEdit && isManualSession ? deleteEntry : undefined}
                                 />
                             )}
                         </Card>
@@ -634,9 +638,10 @@ function EntriesTable({
         clikio_discounts: number;
     };
     companyName: string;
-    onEdit: (row: EntryRow) => void;
+    onEdit?: (row: EntryRow) => void;
     onDelete?: (id: number) => void;
 }) {
+    const showActions = Boolean(onEdit);
     return (
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#3a3a3a]">
             <table className="w-full min-w-[720px] text-left text-sm">
@@ -650,7 +655,7 @@ function EntriesTable({
                         <th className="px-3 py-2 text-right">Extra {companyName}</th>
                         <th className="px-3 py-2 text-right">Desc.</th>
                         <th className="px-3 py-2">Pago</th>
-                        <th className="px-3 py-2" />
+                        {showActions && <th className="px-3 py-2" />}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-[#333]">
@@ -685,6 +690,7 @@ function EntriesTable({
                                     : '—'}
                             </td>
                             <td className="px-3 py-2 text-xs">{row.client_payment_mode_label}</td>
+                            {showActions && onEdit && (
                             <td className="px-3 py-2">
                                 <div className="flex justify-end gap-1">
                                     <button
@@ -694,17 +700,18 @@ function EntriesTable({
                                     >
                                         <Pencil className="h-4 w-4" />
                                     </button>
-                                                    {onDelete && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => onDelete(row.id)}
-                                                            className="rounded p-1.5 text-rose-500 hover:bg-rose-50"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
-                                                    )}
+                                    {onDelete && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onDelete(row.id)}
+                                            className="rounded p-1.5 text-rose-500 hover:bg-rose-50"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </td>
+                            )}
                         </tr>
                     ))}
                 </tbody>
@@ -729,7 +736,7 @@ function EntriesTable({
                         <td className="px-3 py-2 text-right text-amber-600">
                             ${formatCurrency(tableTotals.clikio_discounts)}
                         </td>
-                        <td colSpan={2} />
+                        <td colSpan={showActions ? 2 : 1} />
                     </tr>
                 </tfoot>
             </table>

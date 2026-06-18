@@ -1,11 +1,12 @@
 import AppLayout from '@/layouts/app-layout';
 import SettingsSidebar from '@/pages/settings/components/SettingsSidebar';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Badge, Card, DataTable, SearchBar } from '@/components/ui';
 import type { ColumnDef } from '@/components/ui/DataTable';
 import { useCallback, useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
+import { Shield } from 'lucide-react';
 
 type UserRow = {
     id: number;
@@ -76,6 +77,22 @@ export default function UsersIndex({ users, filters }: UsersPageProps) {
             ),
         },
         { key: 'created_at', label: 'Registro' },
+        {
+            key: 'id',
+            label: '',
+            render: (row) =>
+                row.role !== 'admin' ? (
+                    <Link
+                        href={`/settings/users/${row.id}/permisos`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-sidebar-active hover:bg-sidebar-active/5 dark:border-[#3a3a3a]"
+                    >
+                        <Shield className="h-3.5 w-3.5" />
+                        Permisos
+                    </Link>
+                ) : (
+                    <span className="text-xs text-slate-400">Acceso total</span>
+                ),
+        },
     ];
 
     return (

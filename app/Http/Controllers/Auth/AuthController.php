@@ -9,6 +9,7 @@ use App\Mail\LoginVerificationCodeMail;
 use App\Mail\RegisterVerificationMail;
 use App\Models\CashSession;
 use App\Models\User;
+use App\Services\UserSectionPermissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +21,10 @@ use Inertia\Response;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly UserSectionPermissionService $sectionPermissions,
+    ) {}
+
     private const SESSION_PENDING_USER = 'login.pending_user_id';
 
     private const SESSION_REMEMBER = 'login.remember';
@@ -162,12 +167,9 @@ class AuthController extends Controller
         return redirect()->intended($this->homeUrl($user));
     }
 
-    /** Con jornada abierta el destino por defecto es la jornada en curso; si no, el dashboard. */
     private function homeUrl(User $user): string
     {
-        return CashSession::openLiveForUser($user->id)
-            ? route('reparto.index')
-            : route('dashboard');
+        return $this->sectionPermissions->defaultLandingUrl($user);
     }
 
     public function resendLoginCode(Request $request): RedirectResponse
@@ -228,6 +230,8 @@ class AuthController extends Controller
             'percentage' => User::DEFAULT_REPARTIDOR_PERCENTAGE,
             'role' => User::ROLE_REPARTIDOR,
         ]);
+
+        $this->sectionPermissions->applyDefaultPermissions($user);
 
         try {
             $this->sendRegisterVerificationEmail($user);
