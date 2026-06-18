@@ -12,13 +12,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('user_section_permissions', function (Blueprint $table) {
-            $table->boolean('can_create')->default(false)->after('can_edit');
-            $table->boolean('can_update')->default(false)->after('can_create');
-            $table->boolean('can_delete')->default(false)->after('can_update');
-            $table->boolean('can_payment')->default(false)->after('can_delete');
-            $table->boolean('can_liquidate')->default(false)->after('can_payment');
-        });
+        if (! Schema::hasColumn('user_section_permissions', 'can_create')) {
+            Schema::table('user_section_permissions', function (Blueprint $table) {
+                $table->boolean('can_create')->default(false)->after('can_edit');
+                $table->boolean('can_update')->default(false)->after('can_create');
+                $table->boolean('can_delete')->default(false)->after('can_update');
+                $table->boolean('can_payment')->default(false)->after('can_delete');
+                $table->boolean('can_liquidate')->default(false)->after('can_payment');
+            });
+        }
 
         $service = app(UserSectionPermissionService::class);
 
@@ -42,14 +44,16 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('user_section_permissions', function (Blueprint $table) {
-            $table->dropColumn([
-                'can_create',
-                'can_update',
-                'can_delete',
-                'can_payment',
-                'can_liquidate',
-            ]);
-        });
+        if (Schema::hasColumn('user_section_permissions', 'can_create')) {
+            Schema::table('user_section_permissions', function (Blueprint $table) {
+                $table->dropColumn([
+                    'can_create',
+                    'can_update',
+                    'can_delete',
+                    'can_payment',
+                    'can_liquidate',
+                ]);
+            });
+        }
     }
 };
