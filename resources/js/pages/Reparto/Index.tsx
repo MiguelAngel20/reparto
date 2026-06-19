@@ -22,7 +22,7 @@ import {
     ActiveOrdersBar,
     type ActiveOrderSummary,
 } from '@/components/reparto/active-orders-bar';
-import { Package, Pencil, Play, Receipt, Scale, TrendingDown } from 'lucide-react';
+import { Briefcase, Package, Pencil, Play, Receipt, Scale, TrendingDown } from 'lucide-react';
 import { confirmCloseCashSession } from '@/lib/sweetalert';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -71,6 +71,7 @@ interface RepartoIndexProps {
     userPercentage: number;
     companyName: string;
     totalExpensesToday: number;
+    totalPersonalServicesToday: number;
     netEarningsToday: number;
 }
 
@@ -93,10 +94,12 @@ export default function RepartoIndex({
     userPercentage,
     companyName,
     totalExpensesToday,
+    totalPersonalServicesToday,
     netEarningsToday,
 }: RepartoIndexProps) {
     const { canEdit } = useSectionAccess('reparto');
     const { canEdit: canEditGasto } = useSectionAccess('gasto');
+    const { canEdit: canEditPersonalService } = useSectionAccess('personal_service');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const openForm = useForm({});
@@ -108,6 +111,12 @@ export default function RepartoIndex({
         concept: '',
     });
     const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+    const [personalServiceModalOpen, setPersonalServiceModalOpen] = useState(false);
+    const personalServiceForm = useForm({
+        name: '',
+        amount: '',
+        description: '',
+    });
 
     const sessionSummary = useMemo(() => {
         if (!openSession) {
@@ -163,6 +172,7 @@ export default function RepartoIndex({
                     'sessionOrders',
                     'activeOrders',
                     'totalExpensesToday',
+                    'totalPersonalServicesToday',
                     'netEarningsToday',
                 ],
             });
@@ -202,6 +212,20 @@ export default function RepartoIndex({
             },
         });
     };
+
+    const submitPersonalService = (e: React.FormEvent) => {
+        e.preventDefault();
+        personalServiceForm.post('/mis-servicios', {
+            preserveScroll: true,
+            onSuccess: () => {
+                personalServiceForm.reset();
+                setPersonalServiceModalOpen(false);
+            },
+        });
+    };
+
+    const myEarningsToday =
+        (openSession?.user_earnings ?? 0) + totalPersonalServicesToday;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs} title="Iniciar jornada">
@@ -290,8 +314,14 @@ export default function RepartoIndex({
                                         Mis ganancias
                                     </p>
                                     <p className="mt-0.5 text-lg font-bold text-emerald-600">
-                                        ${formatCurrency(openSession.user_earnings ?? 0)}
+                                        ${formatCurrency(myEarningsToday)}
                                     </p>
+                                    {totalPersonalServicesToday > 0 && (
+                                        <p className="mt-0.5 text-[10px] text-slate-500">
+                                            +${formatCurrency(totalPersonalServicesToday)} servicios
+                                            propios
+                                        </p>
+                                    )}
                                 </div>
                                 <div
                                     className={cn(
@@ -478,6 +508,143 @@ export default function RepartoIndex({
                                                 {expenseForm.processing
                                                     ? 'Guardando...'
                                                     : 'Guardar gasto'}
+                                            </button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                            </>
+                            )}
+
+                            {canEditPersonalService && (
+                            <>
+                            <button
+                                type="button"
+                                onClick={() => setPersonalServiceModalOpen(true)}
+                                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold text-violet-700 hover:bg-violet-100 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-400 dark:hover:bg-violet-950/50"
+                            >
+                                <Briefcase className="h-4 w-4 shrink-0" />
+                                Agregar servicio propio
+                            </button>
+
+                            <Dialog
+                                open={personalServiceModalOpen}
+                                onOpenChange={(open) => {
+                                    setPersonalServiceModalOpen(open);
+                                    if (!open) {
+                                        personalServiceForm.reset();
+                                        personalServiceForm.clearErrors();
+                                    }
+                                }}
+                            >
+                                <DialogContent className="sm:max-w-md">
+                                    <DialogHeader>
+                                        <DialogTitle>Agregar servicio propio</DialogTitle>
+                                        <DialogDescription>
+                                            Servicio fuera de la empresa. El monto completo suma a
+                                            tus ganancias del día.
+                                        </DialogDescription>
+                                    </DialogHeader>
+
+                                    <form
+                                        onSubmit={submitPersonalService}
+                                        noValidate
+                                        className="space-y-4"
+                                    >
+                                        <div>
+                                            <Label
+                                                htmlFor="jornada_service_name"
+                                                className="mb-1 block text-xs text-slate-500"
+                                            >
+                                                Nombre del pedido
+                                            </Label>
+                                            <Input
+                                                id="jornada_service_name"
+                                                value={personalServiceForm.data.name}
+                                                onChange={(e) =>
+                                                    personalServiceForm.setData('name', e.target.value)
+                                                }
+                                                placeholder="Ej. Reparto express"
+                                                className={cn(
+                                                    personalServiceForm.errors.name &&
+                                                        'border-rose-500',
+                                                )}
+                                            />
+                                            {personalServiceForm.errors.name && (
+                                                <p className="mt-1 text-xs text-rose-600">
+                                                    {personalServiceForm.errors.name}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <Label
+                                                htmlFor="jornada_service_amount"
+                                                className="mb-1 block text-xs text-slate-500"
+                                            >
+                                                Monto ($)
+                                            </Label>
+                                            <Input
+                                                id="jornada_service_amount"
+                                                type="number"
+                                                min={0.01}
+                                                step="0.01"
+                                                value={personalServiceForm.data.amount}
+                                                onChange={(e) =>
+                                                    personalServiceForm.setData(
+                                                        'amount',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="0.00"
+                                                className={cn(
+                                                    personalServiceForm.errors.amount &&
+                                                        'border-rose-500',
+                                                )}
+                                            />
+                                            {personalServiceForm.errors.amount && (
+                                                <p className="mt-1 text-xs text-rose-600">
+                                                    {personalServiceForm.errors.amount}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <Label
+                                                htmlFor="jornada_service_description"
+                                                className="mb-1 block text-xs text-slate-500"
+                                            >
+                                                Descripción (opcional)
+                                            </Label>
+                                            <Input
+                                                id="jornada_service_description"
+                                                value={personalServiceForm.data.description}
+                                                onChange={(e) =>
+                                                    personalServiceForm.setData(
+                                                        'description',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="Detalle del servicio"
+                                            />
+                                        </div>
+
+                                        <DialogFooter className="gap-2 sm:gap-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => setPersonalServiceModalOpen(false)}
+                                                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={personalServiceForm.processing}
+                                                className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                            >
+                                                {personalServiceForm.processing
+                                                    ? 'Guardando...'
+                                                    : 'Guardar servicio'}
                                             </button>
                                         </DialogFooter>
                                     </form>

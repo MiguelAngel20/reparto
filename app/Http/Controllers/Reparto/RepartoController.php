@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Reparto;
 
 use App\Http\Controllers\Controller;
 use App\Models\CashSession;
-use App\Models\DailyExpense;
 use App\Models\DeliveryOrder;
 use App\Services\CashSessionSummary;
+use App\Services\DailyEarningsHelper;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -59,16 +59,7 @@ class RepartoController extends Controller
         }
 
         $today = now()->toDateString();
-
-        $totalExpensesToday = round((float) DailyExpense::query()
-            ->where('user_id', $user->id)
-            ->whereDate('expense_date', $today)
-            ->sum('amount'), 2);
-
-        $todayEarnings = $openSession
-            ? (float) (CashSessionSummary::forSession($openSession)['user_earnings'] ?? 0)
-            : 0.0;
-        $netEarningsToday = round($todayEarnings - $totalExpensesToday, 2);
+        $daySummary = DailyEarningsHelper::daySummaryForUser($user->id, $today);
 
         $activeOrders = DeliveryOrder::activeOrdersForUser($user->id)
             ->map(fn ($order) => $this->formatActiveOrderSummary($order))
@@ -85,8 +76,9 @@ class RepartoController extends Controller
             'todayBlockedMessage' => CashSession::dayRegisteredLabelForUser($user->id, $today),
             'userPercentage' => (float) $user->percentage,
             'companyName' => $user->company_name ?? 'Clikio',
-            'totalExpensesToday' => $totalExpensesToday,
-            'netEarningsToday' => $netEarningsToday,
+            'totalExpensesToday' => $daySummary['total_expenses'],
+            'totalPersonalServicesToday' => $daySummary['personal_services'],
+            'netEarningsToday' => $daySummary['net_earnings'],
         ]);
     }
 }

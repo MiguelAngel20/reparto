@@ -14,6 +14,7 @@ import AppLogo from './app-logo';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSectionPermissions } from '@/hooks/useSectionAccess';
 import {
+    Briefcase,
     ClipboardList,
     ChevronDown,
     ChevronUp,
@@ -43,6 +44,7 @@ const allNavItems: NavItem[] = [
     { title: 'Captura manual', href: '/captura-manual', icon: ClipboardList, section: 'manual_capture' },
     { title: 'Cuenta empresa', href: '/cuenta-empresa', icon: Scale, section: 'company_balance' },
     { title: 'Gasto', href: '/gasto', icon: Receipt, section: 'gasto' },
+    { title: 'Mis servicios', href: '/mis-servicios', icon: Briefcase, section: 'personal_service' },
     { title: 'Cuenta tarjeta', href: '/cuenta-tarjeta', icon: CreditCard, section: 'card_account' },
 ];
 

@@ -9,7 +9,7 @@ import {
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSectionPermissions } from '@/hooks/useSectionAccess';
 import { cn } from '@/lib/utils';
-import { ClipboardList, CreditCard, LayoutGrid, LogOut, Package, Receipt, Scale, Settings } from 'lucide-react';
+import { Briefcase, ClipboardList, CreditCard, LayoutGrid, LogOut, Package, Receipt, Scale, Settings } from 'lucide-react';
 
 const navItems = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, section: 'dashboard' as const },
@@ -101,6 +101,17 @@ export function AppBottomNav() {
                                 <Link href="/gasto" className="flex cursor-pointer items-center gap-2">
                                     <Receipt className="h-4 w-4" />
                                     Gasto
+                                </Link>
+                            </DropdownMenuItem>
+                        )}
+                        {canView('personal_service') && (
+                            <DropdownMenuItem asChild>
+                                <Link
+                                    href="/mis-servicios"
+                                    className="flex cursor-pointer items-center gap-2"
+                                >
+                                    <Briefcase className="h-4 w-4" />
+                                    Mis servicios
                                 </Link>
                             </DropdownMenuItem>
                         )}

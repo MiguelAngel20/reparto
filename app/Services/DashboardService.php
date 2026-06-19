@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\CashSession;
-use App\Models\DailyExpense;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -21,11 +20,12 @@ class DashboardService
     {
         $today = now()->toDateString();
         $session = CashSession::sessionForUserOnDate($user->id, $today);
+        $personalServices = DailyEarningsHelper::personalServicesForUserOnDate($user->id, $today);
 
         if (! $session) {
             return [
                 'orders_today' => 0,
-                'user_earnings' => 0.0,
+                'user_earnings' => $personalServices,
                 'clikio_commission' => 0.0,
                 'clikio_settlement' => 0.0,
             ];
@@ -35,7 +35,7 @@ class DashboardService
 
         return [
             'orders_today' => $summary['completed_orders_count'],
-            'user_earnings' => $summary['user_earnings'],
+            'user_earnings' => round($summary['user_earnings'] + $personalServices, 2),
             'clikio_commission' => $summary['total_clikio_commission'],
             'clikio_settlement' => $summary['clikio_settlement'],
         ];
@@ -61,6 +61,10 @@ class DashboardService
 
             $summary = CashSessionSummary::forSession($session);
             $byDate[$date] = ($byDate[$date] ?? 0) + $summary['user_earnings'];
+        }
+
+        foreach (DailyEarningsHelper::personalServicesByDateForUser($userId) as $date => $amount) {
+            $byDate[$date] = ($byDate[$date] ?? 0) + $amount;
         }
 
         ksort($byDate);
@@ -100,14 +104,15 @@ class DashboardService
             $totalEarnings += CashSessionSummary::forSession($session)['user_earnings'];
         }
 
-        $totalExpenses = (float) DailyExpense::query()
+        $totalEarnings += DailyEarningsHelper::personalServicesForUserBetween($userId, $startKey, $endKey);
+
+        $totalExpenses = round((float) \App\Models\DailyExpense::query()
             ->where('user_id', $userId)
             ->whereDate('expense_date', '>=', $startKey)
             ->whereDate('expense_date', '<=', $endKey)
-            ->sum('amount');
+            ->sum('amount'), 2);
 
         $totalEarnings = round($totalEarnings, 2);
-        $totalExpenses = round($totalExpenses, 2);
 
         return [
             'range_label' => $weekStart->format('d/m/Y').' - '.$weekEnd->format('d/m/Y'),
@@ -125,5 +130,4 @@ class DashboardService
 
         return $session->started_at?->format('Y-m-d') ?? '';
     }
-
 }

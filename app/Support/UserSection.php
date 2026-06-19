@@ -16,6 +16,8 @@ class UserSection
 
     public const CARD_ACCOUNT = 'card_account';
 
+    public const PERSONAL_SERVICE = 'personal_service';
+
     /**
      * @return list<string>
      */
@@ -28,6 +30,7 @@ class UserSection
             self::COMPANY_BALANCE,
             self::GASTO,
             self::CARD_ACCOUNT,
+            self::PERSONAL_SERVICE,
         ];
     }
 
@@ -43,6 +46,7 @@ class UserSection
             self::COMPANY_BALANCE => 'Cuenta empresa',
             self::GASTO => 'Gasto',
             self::CARD_ACCOUNT => 'Cuenta tarjeta',
+            self::PERSONAL_SERVICE => 'Mis servicios',
         ];
     }
 

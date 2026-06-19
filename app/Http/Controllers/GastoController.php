@@ -4,9 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Gasto\StoreDailyExpenseRequest;
 use App\Http\Requests\Gasto\UpdateDailyExpenseRequest;
-use App\Models\CashSession;
 use App\Models\DailyExpense;
-use App\Services\CashSessionSummary;
+use App\Services\DailyEarningsHelper;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,7 +17,7 @@ class GastoController extends Controller
     {
         $user = $request->user();
         $today = now()->toDateString();
-        $summary = $this->todaySummary($user->id, $today);
+        $summary = DailyEarningsHelper::daySummaryForUser($user->id, $today);
 
         $expenses = DailyExpense::query()
             ->where('user_id', $user->id)
@@ -72,45 +71,6 @@ class GastoController extends Controller
         $expense->delete();
 
         return back()->with('success', 'Gasto eliminado.');
-    }
-
-    /**
-     * @return array{
-     *     today_earnings: float,
-     *     total_expenses: float,
-     *     net_earnings: float,
-     *     completed_orders_today: int,
-     *     has_open_live_session: bool,
-     *     has_session_today: bool
-     * }
-     */
-    private function todaySummary(int $userId, string $today): array
-    {
-        $session = CashSession::sessionForUserOnDate($userId, $today);
-        $todayEarnings = 0.0;
-        $completedOrdersToday = 0;
-        $hasOpenLiveSession = false;
-
-        if ($session) {
-            $summary = CashSessionSummary::forSession($session);
-            $todayEarnings = (float) $summary['user_earnings'];
-            $completedOrdersToday = (int) $summary['completed_orders_count'];
-            $hasOpenLiveSession = $session->isLive() && $session->isOpen();
-        }
-
-        $totalExpenses = (float) DailyExpense::query()
-            ->where('user_id', $userId)
-            ->whereDate('expense_date', $today)
-            ->sum('amount');
-
-        return [
-            'today_earnings' => round($todayEarnings, 2),
-            'total_expenses' => round($totalExpenses, 2),
-            'net_earnings' => round($todayEarnings - $totalExpenses, 2),
-            'completed_orders_today' => $completedOrdersToday,
-            'has_open_live_session' => $hasOpenLiveSession,
-            'has_session_today' => $session !== null,
-        ];
     }
 
     /**

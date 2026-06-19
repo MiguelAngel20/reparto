@@ -5,6 +5,7 @@ use App\Http\Controllers\CardAccountController;
 use App\Http\Controllers\CompanyBalanceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GastoController;
+use App\Http\Controllers\PersonalServiceController;
 use App\Http\Controllers\Reparto\CashSessionController;
 use App\Http\Controllers\Reparto\DeliveryOrderController;
 use App\Http\Controllers\Reparto\ManualCaptureController;
@@ -55,6 +56,15 @@ Route::middleware('auth')->group(function () {
             Route::post('/', [GastoController::class, 'store'])->name('store');
             Route::put('/{expense}', [GastoController::class, 'update'])->name('update');
             Route::delete('/{expense}', [GastoController::class, 'destroy'])->name('destroy');
+        });
+    });
+
+    Route::prefix('mis-servicios')->name('personal-service.')->middleware('section:'.UserSection::PERSONAL_SERVICE.',view')->group(function () {
+        Route::get('/', [PersonalServiceController::class, 'index'])->name('index');
+        Route::middleware('section:'.UserSection::PERSONAL_SERVICE.',edit')->group(function () {
+            Route::post('/', [PersonalServiceController::class, 'store'])->name('store');
+            Route::put('/{service}', [PersonalServiceController::class, 'update'])->name('update');
+            Route::delete('/{service}', [PersonalServiceController::class, 'destroy'])->name('destroy');
         });
     });
 
