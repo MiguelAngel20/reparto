@@ -44,6 +44,7 @@ type MovementRow = {
     amount_label: string;
     description: string | null;
     created_at: string | null;
+    registered_by: string | null;
     editable: boolean;
 };
 
@@ -209,7 +210,7 @@ export default function CardAccountIndex({
                             <CreditCard className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <p className="text-sm text-slate-500">Saldo de la tarjeta</p>
+                            <p className="text-sm text-slate-500">Cuenta compartida de la tarjeta</p>
                             {account?.holder_name && (
                                 <p className="mt-0.5 text-sm font-medium text-slate-700 dark:text-slate-200">
                                     Tarjeta con: {account.holder_name}
@@ -289,7 +290,7 @@ export default function CardAccountIndex({
                         Movimientos
                     </h2>
                     <p className="mt-1 text-sm text-slate-500">
-                        Compras que hace tu compañero con la tarjeta y los abonos que te va entregando.
+                        Todos con permiso ven los mismos movimientos. Compras con la tarjeta y abonos del equipo.
                     </p>
 
                     {movements.length === 0 ? (
@@ -332,6 +333,8 @@ export default function CardAccountIndex({
                                             {movement.created_at && (
                                                 <p className="mt-1 text-[10px] text-slate-400">
                                                     {movement.created_at}
+                                                    {movement.registered_by &&
+                                                        ` · ${movement.registered_by}`}
                                                 </p>
                                             )}
                                         </div>

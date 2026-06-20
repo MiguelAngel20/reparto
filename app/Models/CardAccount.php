@@ -41,10 +41,9 @@ class CardAccount extends Model
         return $this->status === self::STATUS_OPEN;
     }
 
-    public static function openForUser(int $userId): ?self
+    public static function openAccount(): ?self
     {
         return self::query()
-            ->where('user_id', $userId)
             ->where('status', self::STATUS_OPEN)
             ->latest('id')
             ->first();

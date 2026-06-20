@@ -20,12 +20,11 @@ class CardAccountController extends Controller
 
     public function index(Request $request): Response
     {
-        $user = $request->user();
-        $summary = $this->cardAccounts->summaryForUser($user);
+        $summary = $this->cardAccounts->summary();
         $account = $summary['account'];
 
         $movements = $account
-            ? $account->movements()->latest()->get()->map(
+            ? $account->movements()->with(['user:id,name', 'account:id,status'])->latest()->get()->map(
                 fn (CardAccountMovement $movement) => $this->cardAccounts->formatMovement($movement),
             )
             : collect();
@@ -73,14 +72,14 @@ class CardAccountController extends Controller
         UpdateCardAccountMovementRequest $request,
         CardAccountMovement $movement,
     ): RedirectResponse {
-        $this->cardAccounts->updateMovement($request->user(), $movement, $request->validated());
+        $this->cardAccounts->updateMovement($movement, $request->validated());
 
         return back()->with('success', 'Registro actualizado.');
     }
 
     public function destroy(Request $request, CardAccountMovement $movement): RedirectResponse
     {
-        $this->cardAccounts->deleteMovement($request->user(), $movement);
+        $this->cardAccounts->deleteMovement($movement);
 
         return back()->with('success', 'Registro eliminado.');
     }
@@ -88,7 +87,7 @@ class CardAccountController extends Controller
     public function liquidate(Request $request): RedirectResponse
     {
         try {
-            $this->cardAccounts->liquidate($request->user());
+            $this->cardAccounts->liquidate();
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         }

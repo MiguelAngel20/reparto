@@ -10,10 +10,14 @@ use InvalidArgumentException;
 
 class CardAccountService
 {
-    public function openAccountForUser(User $user, ?string $holderName = null): CardAccount
+    public function ensureOpenAccount(User $user, ?string $holderName = null): CardAccount
     {
-        $existing = CardAccount::openForUser($user->id);
+        $existing = CardAccount::openAccount();
         if ($existing) {
+            if ($holderName && ! $existing->holder_name) {
+                $existing->update(['holder_name' => trim($holderName)]);
+            }
+
             return $existing;
         }
 
@@ -33,9 +37,9 @@ class CardAccountService
      *     balance_display: array{label: string, tone: string, value: string, direction: string|null}
      * }
      */
-    public function summaryForUser(User $user): array
+    public function summary(): array
     {
-        $account = CardAccount::openForUser($user->id);
+        $account = CardAccount::openAccount();
         $totals = $this->totalsForAccount($account);
 
         return [
@@ -53,11 +57,7 @@ class CardAccountService
     public function addPurchase(User $user, array $data, ?string $holderName = null): CardAccountMovement
     {
         return DB::transaction(function () use ($user, $data, $holderName) {
-            $account = $this->openAccountForUser($user, $holderName);
-
-            if ($holderName && ! $account->holder_name) {
-                $account->update(['holder_name' => trim($holderName)]);
-            }
+            $account = $this->ensureOpenAccount($user, $holderName);
 
             return CardAccountMovement::query()->create([
                 'card_account_id' => $account->id,
@@ -73,7 +73,7 @@ class CardAccountService
     public function addPayment(User $user, array $data): CardAccountMovement
     {
         return DB::transaction(function () use ($user, $data) {
-            $account = CardAccount::openForUser($user->id);
+            $account = CardAccount::openAccount();
 
             if (! $account) {
                 throw new InvalidArgumentException('No hay una cuenta de tarjeta abierta.');
@@ -90,12 +90,9 @@ class CardAccountService
         });
     }
 
-    public function updateMovement(User $user, CardAccountMovement $movement, array $data): CardAccountMovement
+    public function updateMovement(CardAccountMovement $movement, array $data): CardAccountMovement
     {
-        $this->assertMovementOwnership($user, $movement);
-
-        $account = $movement->account;
-        abort_unless($account && $account->isOpen(), 403, 'La cuenta ya fue liquidada.');
+        $this->assertMovementBelongsToOpenAccount($movement);
 
         $movement->update([
             'name' => trim($data['name']),
@@ -106,20 +103,17 @@ class CardAccountService
         return $movement->fresh();
     }
 
-    public function deleteMovement(User $user, CardAccountMovement $movement): void
+    public function deleteMovement(CardAccountMovement $movement): void
     {
-        $this->assertMovementOwnership($user, $movement);
-
-        $account = $movement->account;
-        abort_unless($account && $account->isOpen(), 403, 'La cuenta ya fue liquidada.');
+        $this->assertMovementBelongsToOpenAccount($movement);
 
         $movement->delete();
     }
 
-    public function liquidate(User $user): CardAccount
+    public function liquidate(): CardAccount
     {
-        return DB::transaction(function () use ($user) {
-            $account = CardAccount::openForUser($user->id);
+        return DB::transaction(function () {
+            $account = CardAccount::openAccount();
 
             if (! $account) {
                 throw new InvalidArgumentException('No hay una cuenta de tarjeta abierta.');
@@ -184,6 +178,7 @@ class CardAccountService
             'amount_label' => '$'.number_format((float) $movement->amount, 2),
             'description' => $movement->description,
             'created_at' => $movement->created_at?->format('d/m/Y H:i'),
+            'registered_by' => $movement->user?->name,
             'editable' => $movement->account?->isOpen() ?? false,
         ];
     }
@@ -207,7 +202,7 @@ class CardAccountService
 
         if ($balance > 0) {
             return [
-                'label' => "{$holder} te debe",
+                'label' => "{$holder} debe al equipo",
                 'tone' => 'amber',
                 'value' => '$'.number_format($abs, 2),
                 'direction' => 'holder_owes',
@@ -215,15 +210,21 @@ class CardAccountService
         }
 
         return [
-            'label' => "Tú le debes a {$holder}",
+            'label' => "El equipo debe a {$holder}",
             'tone' => 'violet',
             'value' => '$'.number_format($abs, 2),
             'direction' => 'user_owes',
         ];
     }
 
-    private function assertMovementOwnership(User $user, CardAccountMovement $movement): void
+    private function assertMovementBelongsToOpenAccount(CardAccountMovement $movement): void
     {
-        abort_unless($movement->user_id === $user->id, 403);
+        $account = CardAccount::openAccount();
+
+        abort_unless(
+            $account && $account->isOpen() && $movement->card_account_id === $account->id,
+            403,
+            'La cuenta ya fue liquidada o el movimiento no pertenece a la cuenta activa.',
+        );
     }
 }

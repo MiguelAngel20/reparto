@@ -270,7 +270,8 @@ export default function RepartoIndex({
                 ) : (
                     <>
                         <Card className={`${cardClass} border-2 border-sidebar-active/30 p-4 sm:p-5`}>
-                            <div className="grid grid-cols-2 gap-3">
+                            {/* Móvil: 4 cards cuadradas en grid 2×2 */}
+                            <div className="grid grid-cols-2 gap-3 md:hidden">
                                 <div
                                     className={cn(
                                         'flex aspect-square min-h-0 flex-col justify-between rounded-xl px-2.5 py-2.5 sm:px-3 sm:py-3',
@@ -402,6 +403,111 @@ export default function RepartoIndex({
                                             </p>
                                         </div>
                                     )}
+                                </div>
+                            </div>
+
+                            {/* Tablet y escritorio: saldo destacado + fila de resumen */}
+                            <div className="hidden md:block">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                            Saldo del día
+                                        </p>
+                                        <div className="mt-1">
+                                            <p
+                                                className={cn(
+                                                    'font-mono text-4xl font-bold tabular-nums',
+                                                    netEarningsToday > 0.01
+                                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                                        : netEarningsToday < -0.01
+                                                          ? 'text-rose-600 dark:text-rose-400'
+                                                          : 'text-sidebar-active',
+                                                )}
+                                            >
+                                                ${formatCurrency(Math.abs(netEarningsToday))}
+                                            </p>
+                                            {netEarningsToday < -0.01 && (
+                                                <p className="mt-0.5 text-sm font-semibold text-rose-600 dark:text-rose-400">
+                                                    en negativo
+                                                </p>
+                                            )}
+                                        </div>
+                                        <p className="mt-1 text-xs text-slate-500">
+                                            {openSession.completed_orders_count}{' '}
+                                            pedido{openSession.completed_orders_count !== 1 ? 's' : ''}
+                                            {openSession.orders_count > openSession.completed_orders_count &&
+                                                ` · +${openSession.orders_count - openSession.completed_orders_count} en curso`}
+                                        </p>
+                                    </div>
+                                    <div className="shrink-0 rounded-xl bg-rose-50 px-4 py-3 text-right dark:bg-rose-950/30">
+                                        <div className="flex items-center justify-end gap-1 text-[10px] font-semibold uppercase text-rose-700 dark:text-rose-400">
+                                            <TrendingDown className="h-3.5 w-3.5" />
+                                            Gastos del día
+                                        </div>
+                                        <p className="mt-1 text-xl font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                                            ${formatCurrency(totalExpensesToday)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-2 gap-3">
+                                    <div className="rounded-xl bg-emerald-50 px-3 py-3 dark:bg-emerald-950/30">
+                                        <p className="text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
+                                            Mis ganancias
+                                        </p>
+                                        <p className="mt-0.5 text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                                            ${formatCurrency(myEarningsToday)}
+                                        </p>
+                                        {totalPersonalServicesToday > 0 && (
+                                            <p className="mt-0.5 text-[10px] text-slate-500">
+                                                +${formatCurrency(totalPersonalServicesToday)} servicios
+                                                propios
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div
+                                        className={cn(
+                                            'rounded-xl px-3 py-3',
+                                            sessionSummary?.owesClikio &&
+                                                'bg-amber-50 dark:bg-amber-950/30',
+                                            sessionSummary?.clikioOwesYou &&
+                                                'bg-violet-50 dark:bg-violet-950/30',
+                                            sessionSummary &&
+                                                Math.abs(sessionSummary.settlement) < 0.01 &&
+                                                'bg-slate-50 dark:bg-[#1f1f1f]',
+                                        )}
+                                    >
+                                        {sessionSummary && Math.abs(sessionSummary.settlement) >= 0.01 ? (
+                                            <>
+                                                <p
+                                                    className={cn(
+                                                        'text-xs font-semibold leading-tight',
+                                                        sessionSummary.owesClikio
+                                                            ? 'text-amber-800 dark:text-amber-300'
+                                                            : 'text-violet-800 dark:text-violet-300',
+                                                    )}
+                                                >
+                                                    {sessionSummary.owesClikio
+                                                        ? `Le debes a ${companyName}`
+                                                        : `Te debe ${companyName}`}
+                                                </p>
+                                                <p
+                                                    className={cn(
+                                                        'mt-0.5 text-lg font-bold tabular-nums',
+                                                        sessionSummary.owesClikio
+                                                            ? 'text-amber-700 dark:text-amber-400'
+                                                            : 'text-violet-700 dark:text-violet-400',
+                                                    )}
+                                                >
+                                                    ${formatCurrency(sessionSummary.settlementAbs)}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                                Cuadrado con {companyName}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
