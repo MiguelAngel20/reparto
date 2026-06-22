@@ -40,7 +40,6 @@ class UpdateDeliveryOrderRequest extends FormRequest
             'discount' => ['nullable', 'numeric', 'min:0'],
             'client_payment_mode' => ['nullable', Rule::in([
                 DeliveryOrder::PAYMENT_CASH,
-                DeliveryOrder::PAYMENT_TRANSFER,
             ])],
             'cash_collected' => ['nullable', 'numeric', 'min:0'],
             'box_adjustment' => ['nullable', 'numeric'],

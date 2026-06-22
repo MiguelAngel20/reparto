@@ -24,7 +24,7 @@ class CardAccountController extends Controller
         $account = $summary['account'];
 
         $movements = $account
-            ? $account->movements()->with(['user:id,name', 'account:id,status'])->latest()->get()->map(
+            ? $account->movements()->with(['user:id,name', 'account:id,status'])->orderByDesc('movement_date')->orderByDesc('id')->get()->map(
                 fn (CardAccountMovement $movement) => $this->cardAccounts->formatMovement($movement),
             )
             : collect();

@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { confirmAction } from '@/lib/sweetalert';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, localDateInputValue } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useSectionAccess } from '@/hooks/useSectionAccess';
@@ -43,6 +43,8 @@ type MovementRow = {
     amount: number;
     amount_label: string;
     description: string | null;
+    movement_date: string;
+    movement_date_formatted: string | null;
     created_at: string | null;
     registered_by: string | null;
     editable: boolean;
@@ -102,18 +104,21 @@ export default function CardAccountIndex({
 
     const purchaseForm = useForm({
         holder_name: account?.holder_name ?? '',
+        movement_date: localDateInputValue(),
         name: '',
         amount: '',
         description: '',
     });
 
     const paymentForm = useForm({
+        movement_date: localDateInputValue(),
         name: 'Abono',
         amount: '',
         description: '',
     });
 
     const editForm = useForm({
+        movement_date: localDateInputValue(),
         name: '',
         amount: '',
         description: '',
@@ -130,6 +135,7 @@ export default function CardAccountIndex({
             preserveScroll: true,
             onSuccess: () => {
                 purchaseForm.reset('name', 'amount', 'description');
+                purchaseForm.setData('movement_date', localDateInputValue());
                 setPurchaseModalOpen(false);
             },
         });
@@ -141,7 +147,10 @@ export default function CardAccountIndex({
             preserveScroll: true,
             onSuccess: () => {
                 paymentForm.reset('amount', 'description');
-                paymentForm.setData('name', 'Abono');
+                paymentForm.setData({
+                    name: 'Abono',
+                    movement_date: localDateInputValue(),
+                });
                 setPaymentModalOpen(false);
             },
         });
@@ -150,6 +159,7 @@ export default function CardAccountIndex({
     const openEdit = (movement: MovementRow) => {
         setEditingMovement(movement);
         editForm.setData({
+            movement_date: movement.movement_date,
             name: movement.name,
             amount: String(movement.amount),
             description: movement.description ?? '',
@@ -255,7 +265,10 @@ export default function CardAccountIndex({
                         {canCreate && (
                             <button
                                 type="button"
-                                onClick={() => setPurchaseModalOpen(true)}
+                                onClick={() => {
+                                    purchaseForm.setData('movement_date', localDateInputValue());
+                                    setPurchaseModalOpen(true);
+                                }}
                                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white hover:opacity-90"
                             >
                                 <Plus className="h-4 w-4" />
@@ -265,7 +278,10 @@ export default function CardAccountIndex({
                         {canPayment && account && (
                             <button
                                 type="button"
-                                onClick={() => setPaymentModalOpen(true)}
+                                onClick={() => {
+                                    paymentForm.setData('movement_date', localDateInputValue());
+                                    setPaymentModalOpen(true);
+                                }}
                                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400"
                             >
                                 <HandCoins className="h-4 w-4" />
@@ -330,9 +346,9 @@ export default function CardAccountIndex({
                                                     {movement.description}
                                                 </p>
                                             )}
-                                            {movement.created_at && (
+                                            {movement.movement_date_formatted && (
                                                 <p className="mt-1 text-[10px] text-slate-400">
-                                                    {movement.created_at}
+                                                    {movement.movement_date_formatted}
                                                     {movement.registered_by &&
                                                         ` · ${movement.registered_by}`}
                                                 </p>
@@ -402,6 +418,30 @@ export default function CardAccountIndex({
                                     />
                                 </div>
                             )}
+                            <div>
+                                <Label
+                                    htmlFor="purchase_movement_date"
+                                    className="mb-1 block text-xs text-slate-500"
+                                >
+                                    Fecha de la compra
+                                </Label>
+                                <Input
+                                    id="purchase_movement_date"
+                                    type="date"
+                                    value={purchaseForm.data.movement_date}
+                                    onChange={(e) =>
+                                        purchaseForm.setData('movement_date', e.target.value)
+                                    }
+                                    className={cn(
+                                        purchaseForm.errors.movement_date && 'border-rose-500',
+                                    )}
+                                />
+                                {purchaseForm.errors.movement_date && (
+                                    <p className="mt-1 text-xs text-rose-600">
+                                        {purchaseForm.errors.movement_date}
+                                    </p>
+                                )}
+                            </div>
                             <div>
                                 <Label htmlFor="purchase_name" className="mb-1 block text-xs text-slate-500">
                                     Nombre
@@ -479,6 +519,30 @@ export default function CardAccountIndex({
                         </DialogHeader>
                         <form onSubmit={submitPayment} noValidate className="space-y-4">
                             <div>
+                                <Label
+                                    htmlFor="payment_movement_date"
+                                    className="mb-1 block text-xs text-slate-500"
+                                >
+                                    Fecha del abono
+                                </Label>
+                                <Input
+                                    id="payment_movement_date"
+                                    type="date"
+                                    value={paymentForm.data.movement_date}
+                                    onChange={(e) =>
+                                        paymentForm.setData('movement_date', e.target.value)
+                                    }
+                                    className={cn(
+                                        paymentForm.errors.movement_date && 'border-rose-500',
+                                    )}
+                                />
+                                {paymentForm.errors.movement_date && (
+                                    <p className="mt-1 text-xs text-rose-600">
+                                        {paymentForm.errors.movement_date}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
                                 <Label htmlFor="payment_name" className="mb-1 block text-xs text-slate-500">
                                     Nombre
                                 </Label>
@@ -555,6 +619,30 @@ export default function CardAccountIndex({
                             </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={submitEdit} noValidate className="space-y-4">
+                            <div>
+                                <Label
+                                    htmlFor="edit_movement_date"
+                                    className="mb-1 block text-xs text-slate-500"
+                                >
+                                    Fecha del registro
+                                </Label>
+                                <Input
+                                    id="edit_movement_date"
+                                    type="date"
+                                    value={editForm.data.movement_date}
+                                    onChange={(e) =>
+                                        editForm.setData('movement_date', e.target.value)
+                                    }
+                                    className={cn(
+                                        editForm.errors.movement_date && 'border-rose-500',
+                                    )}
+                                />
+                                {editForm.errors.movement_date && (
+                                    <p className="mt-1 text-xs text-rose-600">
+                                        {editForm.errors.movement_date}
+                                    </p>
+                                )}
+                            </div>
                             <div>
                                 <Label htmlFor="edit_name" className="mb-1 block text-xs text-slate-500">
                                     Nombre

@@ -195,29 +195,15 @@ class DeliveryOrderController extends Controller
             ? ($validated['cash_spent'] !== null ? (float) $validated['cash_spent'] : null)
             : ($order->cash_spent !== null ? (float) $order->cash_spent : null);
 
-        $paymentMode = $validated['client_payment_mode']
-            ?? $order->client_payment_mode
-            ?? DeliveryOrder::PAYMENT_CASH;
-
         $payment = $this->resolveClientPayment(
-            $paymentMode,
+            DeliveryOrder::PAYMENT_CASH,
             $serviceCost,
-            isset($validated['cash_collected']) ? ($validated['cash_collected'] !== null ? (float) $validated['cash_collected'] : null) : ($order->cash_collected !== null ? (float) $order->cash_collected : null),
+            null,
         );
 
-        if ($paymentMode === DeliveryOrder::PAYMENT_TRANSFER) {
-            $discountAmount = (float) ($validated['discount'] ?? $serviceCost);
-            if ($discountAmount <= 0) {
-                $discountAmount = $serviceCost;
-            }
-            $payment['transfer_discount'] = $discountAmount > 0 ? $discountAmount : null;
-            $payment['box_adjustment'] = $discountAmount > 0 ? -$discountAmount : null;
-            $manualDiscount = null;
-        } else {
-            $manualDiscount = array_key_exists('discount', $validated)
-                ? $validated['discount']
-                : $order->discount;
-        }
+        $manualDiscount = array_key_exists('discount', $validated)
+            ? $validated['discount']
+            : $order->discount;
 
         $order->update([
             'name' => $validated['name'] ?? $order->name,

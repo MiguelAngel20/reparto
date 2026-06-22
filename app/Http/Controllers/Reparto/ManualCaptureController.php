@@ -173,17 +173,7 @@ class ManualCaptureController extends Controller
 
     protected function formatManualOrderRow(DeliveryOrder $order): array
     {
-        $row = $this->formatSessionOrderRow($order);
-        $manualDiscount = (float) ($order->discount ?? 0);
-        $transferDiscount = (float) ($order->transfer_discount ?? 0);
-        $row['clikio_discounts'] = $order->client_payment_mode === DeliveryOrder::PAYMENT_TRANSFER
-            ? $transferDiscount
-            : round($manualDiscount + $transferDiscount, 2);
-        $row['client_payment_mode'] = $order->client_payment_mode ?? DeliveryOrder::PAYMENT_CASH;
-        $row['client_payment_mode_label'] = DeliveryOrder::paymentModeLabels()[$row['client_payment_mode']]
-            ?? $row['client_payment_mode'];
-
-        return $row;
+        return $this->formatSessionOrderRow($order);
     }
 
     protected function assertEditableSession(Request $request, CashSession $session): void
@@ -210,20 +200,8 @@ class ManualCaptureController extends Controller
         array $validated,
         ?DeliveryOrder $existing = null,
     ): array {
-        $mode = $validated['client_payment_mode'];
         $serviceCost = (float) $validated['service_cost'];
-
-        if ($mode === DeliveryOrder::PAYMENT_TRANSFER) {
-            $discountAmount = (float) ($validated['discount'] ?? $serviceCost);
-            if ($discountAmount <= 0) {
-                $discountAmount = $serviceCost;
-            }
-            $transferDiscount = $discountAmount > 0 ? $discountAmount : null;
-            $manualDiscount = null;
-        } else {
-            $transferDiscount = null;
-            $manualDiscount = $validated['discount'] ?? null;
-        }
+        $manualDiscount = $validated['discount'] ?? null;
 
         $percentage = (float) $user->percentage;
         if ($percentage <= 0 && $existing) {
@@ -244,8 +222,8 @@ class ManualCaptureController extends Controller
             'user_extra' => $validated['user_extra'] ?? null,
             'clikio_extra' => $validated['clikio_extra'] ?? null,
             'discount' => $manualDiscount,
-            'client_payment_mode' => $mode,
-            'transfer_discount' => $transferDiscount,
+            'client_payment_mode' => DeliveryOrder::PAYMENT_CASH,
+            'transfer_discount' => null,
         ];
 
         if ($existing && $session->isLive()) {

@@ -92,11 +92,6 @@ const breadcrumbs: BreadcrumbItem[] = [
 const cardClass =
     'border border-slate-200/80 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626] sm:p-5';
 
-const PAYMENT_MODES = [
-    { value: 'cash', label: 'Efectivo' },
-    { value: 'transfer', label: 'Transf.' },
-] as const;
-
 type ListItem = {
     description: string;
     price: string;
@@ -107,7 +102,8 @@ function defaultExtrasEnabled(o: OrderData): boolean {
     return (
         (o.user_extra ?? 0) > 0 ||
         (o.clikio_extra ?? 0) > 0 ||
-        ((o.discount ?? 0) > 0 && o.client_payment_mode !== 'transfer')
+        (o.discount ?? 0) > 0 ||
+        (o.transfer_discount ?? 0) > 0
     );
 }
 
@@ -169,39 +165,8 @@ function ShowOrderPage({
     );
 
     const clientTotal = totalToCharge;
-    const paymentMode = form.data.client_payment_mode;
-    const isTransferMode = paymentMode === 'transfer';
-
-    const setPaymentMode = (mode: 'cash' | 'transfer') => {
-        if (mode === 'transfer') {
-            form.setData({
-                ...form.data,
-                client_payment_mode: mode,
-                cash_collected: '',
-                discount: form.data.service_cost || form.data.discount,
-            });
-            return;
-        }
-
-        // Al volver a efectivo se limpia el descuento que aplicó la transferencia
-        form.setData({
-            ...form.data,
-            client_payment_mode: mode,
-            cash_collected: '',
-            discount: '',
-        });
-    };
 
     const handleServiceCostChange = (value: string) => {
-        if (isTransferMode) {
-            form.setData({
-                ...form.data,
-                service_cost: value,
-                discount: value,
-            });
-            return;
-        }
-
         form.setData('service_cost', value);
         clearField('service_cost');
     };
@@ -289,15 +254,13 @@ function ShowOrderPage({
     const buildFinalizePayload = useCallback(() => {
         const orderType = inferOrderType();
         const amount = hasListPrices ? listTotal : parseFloat(form.data.cash_spent) || 0;
-        const paymentMode =
-            form.data.client_payment_mode === 'transfer' ? 'transfer' : 'cash';
 
         return {
             ...form.data,
             order_type: orderType,
             cash_spent: orderType === 'cash_out' ? String(amount) : '',
             cash_collected: '',
-            client_payment_mode: paymentMode,
+            client_payment_mode: 'cash',
             items: form.data.items.filter((i) => i.description.trim() !== ''),
         };
     }, [form.data, hasListPrices, listTotal]);
@@ -307,7 +270,6 @@ function ShowOrderPage({
         const clientErrors = validateActiveOrder({
             name: form.data.name,
             service_cost: form.data.service_cost,
-            client_payment_mode: form.data.client_payment_mode,
         });
         Object.entries(clientErrors).forEach(([key, message]) => {
             form.setError(key as 'name' | 'service_cost' | 'cash_spent', message);
@@ -339,7 +301,6 @@ function ShowOrderPage({
         const clientErrors = validateActiveOrder({
             name: form.data.name,
             service_cost: form.data.service_cost,
-            client_payment_mode: form.data.client_payment_mode,
         });
         Object.entries(clientErrors).forEach(([key, message]) => {
             form.setError(key as 'name' | 'service_cost' | 'cash_spent', message);
@@ -437,7 +398,7 @@ function ShowOrderPage({
                             )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 min-[500px]:grid-cols-3">
+                        <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <Label htmlFor="service_cost" className="mb-1 block text-xs text-slate-500">
                                     Servicio ($)
@@ -477,26 +438,6 @@ function ShowOrderPage({
                                         className={cn(form.errors.cash_spent && 'border-rose-500')}
                                     />
                                 )}
-                            </div>
-                            <div className="col-span-2 min-[500px]:col-span-1">
-                                <Label className="mb-1 block text-xs text-slate-500">Pago</Label>
-                                <div className="flex gap-2">
-                                    {PAYMENT_MODES.map((mode) => (
-                                        <button
-                                            key={mode.value}
-                                            type="button"
-                                            onClick={() => setPaymentMode(mode.value)}
-                                            className={cn(
-                                                'flex-1 rounded-lg py-2 text-xs font-medium',
-                                                paymentMode === mode.value
-                                                    ? 'bg-sidebar-active text-white'
-                                                    : 'border border-slate-200 dark:border-[#3a3a3a]',
-                                            )}
-                                        >
-                                            {mode.label}
-                                        </button>
-                                    ))}
-                                </div>
                             </div>
                         </div>
                         {form.errors.service_cost && (

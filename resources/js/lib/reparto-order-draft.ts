@@ -76,8 +76,7 @@ type OrderSnapshot = {
     user_extra: number | null;
     clikio_extra: number | null;
     discount: number | null;
-    client_payment_mode: string;
-    cash_collected: number | null;
+    transfer_discount: number | null;
     notes: string | null;
     items: { description: string; price: number; is_completed: boolean }[];
 };
@@ -95,10 +94,14 @@ export function orderToFormDraft(
         cash_spent: order.cash_spent != null ? String(order.cash_spent) : '',
         user_extra: order.user_extra != null ? String(order.user_extra) : '',
         clikio_extra: order.clikio_extra != null ? String(order.clikio_extra) : '',
-        discount: order.discount != null ? String(order.discount) : '',
-        client_payment_mode:
-            order.client_payment_mode === 'transfer' ? 'transfer' : 'cash',
-        cash_collected: order.cash_collected != null ? String(order.cash_collected) : '',
+        discount:
+            order.discount != null
+                ? String(order.discount)
+                : order.transfer_discount != null
+                  ? String(order.transfer_discount)
+                  : '',
+        client_payment_mode: 'cash',
+        cash_collected: '',
         notes: order.notes ?? '',
         items: order.items.map((i) => ({
             description: i.description,
@@ -140,7 +143,6 @@ export function draftHasContent(draft: OrderFormDraft): boolean {
         draft.clikio_extra.trim() !== '' ||
         draft.discount.trim() !== '' ||
         draft.notes.trim() !== '' ||
-        draft.client_payment_mode === 'transfer' ||
         draft.extras_enabled
     );
 }

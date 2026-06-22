@@ -20,6 +20,8 @@ class StoreManualCaptureEntryRequest extends FormRequest
                 $this->merge([$field => null]);
             }
         }
+
+        $this->merge(['client_payment_mode' => DeliveryOrder::PAYMENT_CASH]);
     }
 
     public function rules(): array
@@ -27,9 +29,8 @@ class StoreManualCaptureEntryRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'service_cost' => ['required', 'numeric', 'min:0'],
-            'client_payment_mode' => ['required', Rule::in([
+            'client_payment_mode' => ['sometimes', Rule::in([
                 DeliveryOrder::PAYMENT_CASH,
-                DeliveryOrder::PAYMENT_TRANSFER,
             ])],
             'user_extra' => ['nullable', 'numeric', 'min:0'],
             'clikio_extra' => ['nullable', 'numeric', 'min:0'],

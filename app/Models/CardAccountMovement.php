@@ -18,12 +18,14 @@ class CardAccountMovement extends Model
         'name',
         'amount',
         'description',
+        'movement_date',
     ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
+            'movement_date' => 'date',
         ];
     }
 

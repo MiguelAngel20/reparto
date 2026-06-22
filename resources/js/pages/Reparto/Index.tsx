@@ -270,11 +270,11 @@ export default function RepartoIndex({
                 ) : (
                     <>
                         <Card className={`${cardClass} border-2 border-sidebar-active/30 p-4 sm:p-5`}>
-                            {/* Móvil: 4 cards cuadradas en grid 2×2 */}
-                            <div className="grid grid-cols-2 gap-3 md:hidden">
+                            {/* Móvil: 4 cards compactas en grid 2×2 */}
+                            <div className="grid grid-cols-2 items-stretch gap-2.5 md:hidden">
                                 <div
                                     className={cn(
-                                        'flex aspect-square min-h-0 flex-col justify-between rounded-xl px-2.5 py-2.5 sm:px-3 sm:py-3',
+                                        'flex h-full min-h-0 flex-col gap-0.5 rounded-xl px-2.5 py-2',
                                         netEarningsToday > 0.01
                                             ? 'bg-emerald-50 dark:bg-emerald-950/30'
                                             : netEarningsToday < -0.01
@@ -282,29 +282,27 @@ export default function RepartoIndex({
                                               : 'bg-slate-50 dark:bg-[#1f1f1f]',
                                     )}
                                 >
-                                    <div>
-                                        <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[10px]">
-                                            Saldo del día
-                                        </p>
-                                        <p
-                                            className={cn(
-                                                'mt-1 font-mono text-xl font-bold tabular-nums sm:text-2xl',
-                                                netEarningsToday > 0.01
-                                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                                    : netEarningsToday < -0.01
-                                                      ? 'text-rose-600 dark:text-rose-400'
-                                                      : 'text-sidebar-active',
-                                            )}
-                                        >
-                                            ${formatCurrency(Math.abs(netEarningsToday))}
-                                        </p>
-                                        {netEarningsToday < -0.01 && (
-                                            <p className="mt-0.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
-                                                en negativo
-                                            </p>
+                                    <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                                        Saldo del día
+                                    </p>
+                                    <p
+                                        className={cn(
+                                            'font-mono text-lg font-bold tabular-nums leading-tight',
+                                            netEarningsToday > 0.01
+                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                : netEarningsToday < -0.01
+                                                  ? 'text-rose-600 dark:text-rose-400'
+                                                  : 'text-sidebar-active',
                                         )}
-                                    </div>
-                                    <p className="text-[9px] leading-tight text-slate-500 sm:text-[10px]">
+                                    >
+                                        ${formatCurrency(Math.abs(netEarningsToday))}
+                                    </p>
+                                    {netEarningsToday < -0.01 && (
+                                        <p className="text-[10px] font-semibold leading-tight text-rose-600 dark:text-rose-400">
+                                            en negativo
+                                        </p>
+                                    )}
+                                    <p className="text-[9px] leading-tight text-slate-500">
                                         {openSession.completed_orders_count}{' '}
                                         pedido{openSession.completed_orders_count !== 1 ? 's' : ''}
                                         {openSession.orders_count > openSession.completed_orders_count &&
@@ -312,44 +310,40 @@ export default function RepartoIndex({
                                     </p>
                                 </div>
 
-                                <div className="flex aspect-square min-h-0 flex-col justify-between rounded-xl bg-rose-50 px-2.5 py-2.5 sm:px-3 sm:py-3 dark:bg-rose-950/30">
-                                    <div>
-                                        <div className="flex items-center gap-1 text-[9px] font-semibold uppercase text-rose-700 sm:text-[10px] dark:text-rose-400">
-                                            <TrendingDown className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
-                                            Gastos del día
-                                        </div>
-                                        <p className="mt-1 font-mono text-xl font-bold tabular-nums text-rose-600 sm:text-2xl dark:text-rose-400">
-                                            ${formatCurrency(totalExpensesToday)}
-                                        </p>
+                                <div className="flex h-full min-h-0 flex-col gap-0.5 rounded-xl bg-rose-50 px-2.5 py-2 dark:bg-rose-950/30">
+                                    <div className="flex items-center gap-1 text-[9px] font-semibold uppercase text-rose-700 dark:text-rose-400">
+                                        <TrendingDown className="h-3 w-3 shrink-0" />
+                                        Gastos del día
                                     </div>
-                                    <p className="text-[9px] text-rose-600/70 sm:text-[10px] dark:text-rose-400/70">
+                                    <p className="font-mono text-lg font-bold tabular-nums leading-tight text-rose-600 dark:text-rose-400">
+                                        ${formatCurrency(totalExpensesToday)}
+                                    </p>
+                                    <p className="text-[9px] leading-tight text-rose-600/70 dark:text-rose-400/70">
                                         Registrados hoy
                                     </p>
                                 </div>
 
-                                <div className="flex aspect-square min-h-0 flex-col justify-between rounded-xl bg-emerald-50 px-2.5 py-2.5 sm:px-3 sm:py-3 dark:bg-emerald-950/30">
-                                    <div>
-                                        <p className="text-[9px] font-semibold uppercase text-emerald-700 sm:text-[10px] dark:text-emerald-400">
-                                            Mis ganancias
+                                <div className="flex h-full min-h-0 flex-col gap-0.5 rounded-xl bg-emerald-50 px-2.5 py-2 dark:bg-emerald-950/30">
+                                    <p className="text-[9px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
+                                        Mis ganancias
+                                    </p>
+                                    <p className="font-mono text-lg font-bold tabular-nums leading-tight text-emerald-600 dark:text-emerald-400">
+                                        ${formatCurrency(myEarningsToday)}
+                                    </p>
+                                    {totalPersonalServicesToday > 0 && (
+                                        <p className="text-[9px] leading-tight text-slate-500">
+                                            +${formatCurrency(totalPersonalServicesToday)} servicios
+                                            propios
                                         </p>
-                                        <p className="mt-1 font-mono text-xl font-bold tabular-nums text-emerald-600 sm:text-2xl dark:text-emerald-400">
-                                            ${formatCurrency(myEarningsToday)}
-                                        </p>
-                                        {totalPersonalServicesToday > 0 && (
-                                            <p className="mt-0.5 text-[9px] leading-tight text-slate-500 sm:text-[10px]">
-                                                +${formatCurrency(totalPersonalServicesToday)} servicios
-                                                propios
-                                            </p>
-                                        )}
-                                    </div>
-                                    <p className="text-[9px] text-emerald-600/70 sm:text-[10px] dark:text-emerald-400/70">
+                                    )}
+                                    <p className="text-[9px] leading-tight text-emerald-600/70 dark:text-emerald-400/70">
                                         Jornada + propios
                                     </p>
                                 </div>
 
                                 <div
                                     className={cn(
-                                        'flex aspect-square min-h-0 flex-col justify-between rounded-xl px-2.5 py-2.5 sm:px-3 sm:py-3',
+                                        'flex h-full min-h-0 flex-col gap-0.5 rounded-xl px-2.5 py-2',
                                         sessionSummary?.owesClikio &&
                                             'bg-amber-50 dark:bg-amber-950/30',
                                         sessionSummary?.clikioOwesYou &&
@@ -361,33 +355,31 @@ export default function RepartoIndex({
                                 >
                                     {sessionSummary && Math.abs(sessionSummary.settlement) >= 0.01 ? (
                                         <>
-                                            <div>
-                                                <p
-                                                    className={cn(
-                                                        'text-[9px] font-semibold leading-tight sm:text-[10px]',
-                                                        sessionSummary.owesClikio
-                                                            ? 'text-amber-800 dark:text-amber-300'
-                                                            : 'text-violet-800 dark:text-violet-300',
-                                                    )}
-                                                >
-                                                    {sessionSummary.owesClikio
-                                                        ? `Le debes a ${companyName}`
-                                                        : `Te debe ${companyName}`}
-                                                </p>
-                                                <p
-                                                    className={cn(
-                                                        'mt-1 font-mono text-xl font-bold tabular-nums sm:text-2xl',
-                                                        sessionSummary.owesClikio
-                                                            ? 'text-amber-700 dark:text-amber-400'
-                                                            : 'text-violet-700 dark:text-violet-400',
-                                                    )}
-                                                >
-                                                    ${formatCurrency(sessionSummary.settlementAbs)}
-                                                </p>
-                                            </div>
                                             <p
                                                 className={cn(
-                                                    'text-[9px] sm:text-[10px]',
+                                                    'text-[9px] font-semibold leading-tight',
+                                                    sessionSummary.owesClikio
+                                                        ? 'text-amber-800 dark:text-amber-300'
+                                                        : 'text-violet-800 dark:text-violet-300',
+                                                )}
+                                            >
+                                                {sessionSummary.owesClikio
+                                                    ? `Le debes a ${companyName}`
+                                                    : `Te debe ${companyName}`}
+                                            </p>
+                                            <p
+                                                className={cn(
+                                                    'font-mono text-lg font-bold tabular-nums leading-tight',
+                                                    sessionSummary.owesClikio
+                                                        ? 'text-amber-700 dark:text-amber-400'
+                                                        : 'text-violet-700 dark:text-violet-400',
+                                                )}
+                                            >
+                                                ${formatCurrency(sessionSummary.settlementAbs)}
+                                            </p>
+                                            <p
+                                                className={cn(
+                                                    'text-[9px] leading-tight',
                                                     sessionSummary.owesClikio
                                                         ? 'text-amber-700/70 dark:text-amber-400/70'
                                                         : 'text-violet-700/70 dark:text-violet-400/70',
@@ -397,11 +389,9 @@ export default function RepartoIndex({
                                             </p>
                                         </>
                                     ) : (
-                                        <div className="flex h-full flex-col justify-center">
-                                            <p className="text-[10px] font-semibold leading-tight text-slate-600 sm:text-xs dark:text-slate-300">
-                                                Cuadrado con {companyName}
-                                            </p>
-                                        </div>
+                                        <p className="text-[10px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
+                                            Cuadrado con {companyName}
+                                        </p>
                                     )}
                                 </div>
                             </div>

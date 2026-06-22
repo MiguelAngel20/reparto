@@ -66,6 +66,7 @@ class CardAccountService
                 'name' => trim($data['name']),
                 'amount' => round((float) $data['amount'], 2),
                 'description' => $data['description'] ?? null,
+                'movement_date' => $data['movement_date'],
             ]);
         });
     }
@@ -86,6 +87,7 @@ class CardAccountService
                 'name' => trim($data['name']),
                 'amount' => round((float) $data['amount'], 2),
                 'description' => $data['description'] ?? null,
+                'movement_date' => $data['movement_date'],
             ]);
         });
     }
@@ -98,6 +100,7 @@ class CardAccountService
             'name' => trim($data['name']),
             'amount' => round((float) $data['amount'], 2),
             'description' => $data['description'] ?? null,
+            'movement_date' => $data['movement_date'] ?? $movement->movement_date,
         ]);
 
         return $movement->fresh();
@@ -177,6 +180,8 @@ class CardAccountService
             'amount' => (float) $movement->amount,
             'amount_label' => '$'.number_format((float) $movement->amount, 2),
             'description' => $movement->description,
+            'movement_date' => ($movement->movement_date ?? $movement->created_at)?->format('Y-m-d'),
+            'movement_date_formatted' => ($movement->movement_date ?? $movement->created_at)?->format('d/m/Y'),
             'created_at' => $movement->created_at?->format('d/m/Y H:i'),
             'registered_by' => $movement->user?->name,
             'editable' => $movement->account?->isOpen() ?? false,

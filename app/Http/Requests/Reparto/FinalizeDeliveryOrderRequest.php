@@ -22,7 +22,7 @@ class FinalizeDeliveryOrderRequest extends FormRequest
             }
         }
 
-        if ($this->input('client_payment_mode') === DeliveryOrder::PAYMENT_MIXED) {
+        if ($this->input('client_payment_mode') !== DeliveryOrder::PAYMENT_CASH) {
             $this->merge(['client_payment_mode' => DeliveryOrder::PAYMENT_CASH]);
         }
 
@@ -50,9 +50,8 @@ class FinalizeDeliveryOrderRequest extends FormRequest
             'user_extra' => ['nullable', 'numeric', 'min:0'],
             'clikio_extra' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
-            'client_payment_mode' => ['required', Rule::in([
+            'client_payment_mode' => ['sometimes', Rule::in([
                 DeliveryOrder::PAYMENT_CASH,
-                DeliveryOrder::PAYMENT_TRANSFER,
             ])],
             'cash_collected' => ['nullable', 'numeric', 'min:0'],
             'box_adjustment' => ['nullable', 'numeric'],

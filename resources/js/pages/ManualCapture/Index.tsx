@@ -33,8 +33,6 @@ type EntryRow = {
     user_extra: number;
     clikio_extra: number;
     clikio_discounts: number;
-    client_payment_mode: string;
-    client_payment_mode_label: string;
 };
 
 type ManualCaptureSessionData = SessionHistoryItem & {
@@ -75,7 +73,6 @@ const cardClass =
 const emptyEntryForm = {
     name: '',
     service_cost: '60',
-    client_payment_mode: 'cash' as 'cash' | 'transfer',
     user_extra: '',
     clikio_extra: '',
     discount: '',
@@ -187,53 +184,18 @@ export default function ManualCaptureIndex({
         entryForm.setData(emptyEntryForm);
     };
 
-    const setPaymentMode = (mode: 'cash' | 'transfer') => {
-        if (mode === 'transfer') {
-            entryForm.setData({
-                ...entryForm.data,
-                client_payment_mode: mode,
-                discount: entryForm.data.service_cost || entryForm.data.discount,
-            });
-            return;
-        }
-
-        entryForm.setData({
-            ...entryForm.data,
-            client_payment_mode: mode,
-        });
-    };
-
     const handleServiceCostChange = (value: string) => {
-        if (entryForm.data.client_payment_mode === 'transfer') {
-            entryForm.setData({
-                ...entryForm.data,
-                service_cost: value,
-                discount: value,
-            });
-            return;
-        }
-
         entryForm.setData('service_cost', value);
-    };
-
-    const handleDiscountChange = (value: string) => {
-        entryForm.setData('discount', value);
     };
 
     const loadEntry = (row: EntryRow) => {
         setEditingId(row.id);
-        const isTransfer = row.client_payment_mode === 'transfer';
         entryForm.setData({
             name: row.name,
             service_cost: String(row.service_cost),
-            client_payment_mode: isTransfer ? 'transfer' : 'cash',
             user_extra: row.user_extra > 0 ? String(row.user_extra) : '',
             clikio_extra: row.clikio_extra > 0 ? String(row.clikio_extra) : '',
-            discount: isTransfer
-                ? String(row.clikio_discounts > 0 ? row.clikio_discounts : row.service_cost)
-                : row.clikio_discounts > 0
-                  ? String(row.clikio_discounts)
-                  : '',
+            discount: row.clikio_discounts > 0 ? String(row.clikio_discounts) : '',
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -241,6 +203,11 @@ export default function ManualCaptureIndex({
     const submitEntry = (e: React.FormEvent) => {
         e.preventDefault();
         if (!entriesBaseUrl) return;
+
+        entryForm.transform((data) => ({
+            ...data,
+            client_payment_mode: 'cash',
+        }));
 
         if (editingId) {
             entryForm.put(`${entriesBaseUrl}/${editingId}`, {
@@ -272,8 +239,6 @@ export default function ManualCaptureIndex({
             preserveScroll: true,
         });
     };
-
-    const isTransferMode = entryForm.data.client_payment_mode === 'transfer';
 
     const commissionPreview = useMemo(() => {
         const serviceCost = parseFloat(entryForm.data.service_cost) || 0;
@@ -472,55 +437,25 @@ export default function ManualCaptureIndex({
                                         </p>
                                     )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <Label className="mb-1 block text-xs text-slate-500">
-                                            Monto ($)
-                                        </Label>
-                                        <Input
-                                            type="number"
-                                            min={0}
-                                            step="0.01"
-                                            value={entryForm.data.service_cost}
-                                            onChange={(e) =>
-                                                handleServiceCostChange(e.target.value)
-                                            }
-                                        />
-                                        <p className="mt-1.5 text-[11px] text-slate-500">
-                                            Tu {userPercentage}% · Mi gan.: $
-                                            {formatCurrency(commissionPreview.userCommission)}{' '}
-                                            · {companyName}: $
-                                            {formatCurrency(commissionPreview.clikioCommission)}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <Label className="mb-1 block text-xs text-slate-500">
-                                            Pago
-                                        </Label>
-                                        <div className="flex gap-2">
-                                            {(
-                                                [
-                                                    { value: 'cash', label: 'Efectivo' },
-                                                    { value: 'transfer', label: 'Transf.' },
-                                                ] as const
-                                            ).map((mode) => (
-                                                <button
-                                                    key={mode.value}
-                                                    type="button"
-                                                    onClick={() => setPaymentMode(mode.value)}
-                                                    className={cn(
-                                                        'flex-1 rounded-lg py-2 text-xs font-medium',
-                                                        entryForm.data.client_payment_mode ===
-                                                            mode.value
-                                                            ? 'bg-sidebar-active text-white'
-                                                            : 'border border-slate-200 dark:border-[#3a3a3a]',
-                                                    )}
-                                                >
-                                                    {mode.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
+                                <div>
+                                    <Label className="mb-1 block text-xs text-slate-500">
+                                        Monto ($)
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        value={entryForm.data.service_cost}
+                                        onChange={(e) =>
+                                            handleServiceCostChange(e.target.value)
+                                        }
+                                    />
+                                    <p className="mt-1.5 text-[11px] text-slate-500">
+                                        Tu {userPercentage}% · Mi gan.: $
+                                        {formatCurrency(commissionPreview.userCommission)}{' '}
+                                        · {companyName}: $
+                                        {formatCurrency(commissionPreview.clikioCommission)}
+                                    </p>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2">
                                     <div>
@@ -553,7 +488,7 @@ export default function ManualCaptureIndex({
                                     </div>
                                     <div>
                                         <Label className="mb-1 block text-[10px] text-slate-500">
-                                            {isTransferMode ? 'Descuento (transf.)' : 'Descuento'}
+                                            Descuento
                                         </Label>
                                         <Input
                                             type="number"
@@ -561,7 +496,7 @@ export default function ManualCaptureIndex({
                                             step="0.01"
                                             value={entryForm.data.discount}
                                             onChange={(e) =>
-                                                handleDiscountChange(e.target.value)
+                                                entryForm.setData('discount', e.target.value)
                                             }
                                             onFocus={(e) => e.currentTarget.select()}
                                         />
@@ -654,7 +589,6 @@ function EntriesTable({
                         <th className="px-3 py-2 text-right">Extra</th>
                         <th className="px-3 py-2 text-right">Extra {companyName}</th>
                         <th className="px-3 py-2 text-right">Desc.</th>
-                        <th className="px-3 py-2">Pago</th>
                         {showActions && <th className="px-3 py-2" />}
                     </tr>
                 </thead>
@@ -689,7 +623,6 @@ function EntriesTable({
                                     ? `$${formatCurrency(row.clikio_discounts)}`
                                     : '—'}
                             </td>
-                            <td className="px-3 py-2 text-xs">{row.client_payment_mode_label}</td>
                             {showActions && onEdit && (
                             <td className="px-3 py-2">
                                 <div className="flex justify-end gap-1">
@@ -736,7 +669,7 @@ function EntriesTable({
                         <td className="px-3 py-2 text-right text-amber-600">
                             ${formatCurrency(tableTotals.clikio_discounts)}
                         </td>
-                        <td colSpan={showActions ? 2 : 1} />
+                        {showActions && <td />}
                     </tr>
                 </tfoot>
             </table>

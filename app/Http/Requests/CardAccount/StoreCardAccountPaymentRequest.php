@@ -17,6 +17,15 @@ class StoreCardAccountPaymentRequest extends FormRequest
             'name' => ['required', 'string', 'max:120'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:500'],
+            'movement_date' => ['required', 'date', 'before_or_equal:today'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'movement_date.required' => 'Indica la fecha del abono.',
+            'movement_date.before_or_equal' => 'La fecha no puede ser futura.',
         ];
     }
 }
