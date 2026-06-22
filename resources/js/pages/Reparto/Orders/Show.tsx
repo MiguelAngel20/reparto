@@ -347,7 +347,7 @@ function ShowOrderPage({
                 ← Reparto
             </Link>
 
-            <div className="flex w-full flex-col gap-3 max-[499px]:pb-[calc(11rem+env(safe-area-inset-bottom,0px))]">
+            <div className="flex w-full flex-col gap-3">
                 {!isEditingCompleted && activeOrders.length > 0 && (
                     <ActiveOrdersBar
                         orders={activeOrders}
@@ -566,6 +566,12 @@ function ShowOrderPage({
                         </div>
                     )}
                 </Card>
+
+                {/* Móvil: espacio exacto para el footer fijo (evita hueco extra al hacer scroll) */}
+                <div
+                    className="hidden max-[499px]:block max-[499px]:h-[5rem] max-[499px]:shrink-0"
+                    aria-hidden
+                />
 
                 <div className="sticky bottom-0 z-30 -mx-1 rounded-t-2xl border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur max-[499px]:fixed max-[499px]:inset-x-0 max-[499px]:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] max-[499px]:mx-0 max-[499px]:rounded-t-lg max-[499px]:p-3 dark:border-[#333] dark:bg-[#262626]/95">
                     <div className="flex items-center justify-between gap-2">
