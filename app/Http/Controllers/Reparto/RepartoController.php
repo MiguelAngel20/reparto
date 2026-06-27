@@ -33,7 +33,7 @@ class RepartoController extends Controller
             ])
             ->orderByDesc('started_at')
             ->get()
-            ->map(fn ($s) => $this->formatSessionWithSummary($s));
+            ->map(fn ($s) => $this->formatSessionWithSummary($s, $user->id));
 
         $openSessionData = null;
         $sessionOrders = [];
@@ -80,5 +80,12 @@ class RepartoController extends Controller
             'totalPersonalServicesToday' => $daySummary['personal_services'],
             'netEarningsToday' => $daySummary['net_earnings'],
         ]);
+    }
+
+    public function showSession(Request $request, CashSession $session): Response
+    {
+        abort_unless($session->isLive(), 404);
+
+        return $this->renderSessionView($request, $session, 'reparto');
     }
 }

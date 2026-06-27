@@ -30,6 +30,8 @@ type Movement = {
     favor: 'user' | 'company' | 'neutral';
     signed_label: string;
     balance_after: number;
+    balance_before?: number;
+    balance_calculation_label?: string;
     balance_after_label: string;
     balance_after_summary: string;
     balance_after_tone: BalanceDisplay['tone'];
@@ -85,7 +87,11 @@ function FavorBadge({
     favor: Movement['favor'];
 }) {
     if (favor === 'neutral') {
-        return <span className="text-[10px] text-slate-500">{label}</span>;
+        return (
+            <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-[#333] dark:text-slate-300">
+                {label}
+            </span>
+        );
     }
 
     const isUser = favor === 'user';
@@ -566,9 +572,17 @@ export default function CompanyBalanceIndex({
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                {movement.type_label}
-                                            </p>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                                    {movement.type_label}
+                                                </p>
+                                                {movement.type === 'session_settlement' && (
+                                                    <FavorBadge
+                                                        label={movement.signed_label}
+                                                        favor={movement.favor}
+                                                    />
+                                                )}
+                                            </div>
                                             <p className="mt-0.5 text-xs text-slate-500">
                                                 {movement.display_date}
                                             </p>
@@ -583,16 +597,17 @@ export default function CompanyBalanceIndex({
                                                 </p>
                                             )}
                                             {movement.type === 'session_settlement' && (
-                                                <p className="mt-1 text-xs text-slate-500">
-                                                    Cuadre del día:{' '}
-                                                    <span
-                                                        className={cn(
-                                                            'font-semibold tabular-nums',
-                                                            amountToneClass(movement.favor),
-                                                        )}
-                                                    >
-                                                        {movement.amount_label}
-                                                    </span>
+                                                <p
+                                                    className={cn(
+                                                        'mt-2 text-sm font-semibold tabular-nums',
+                                                        amountToneClass(movement.favor),
+                                                    )}
+                                                >
+                                                    {movement.favor === 'user' &&
+                                                        `${companyName} te debe ${movement.amount_label}`}
+                                                    {movement.favor === 'company' &&
+                                                        `Le debes ${movement.amount_label} a ${companyName}`}
+                                                    {movement.favor === 'neutral' && movement.amount_label}
                                                 </p>
                                             )}
                                             {movement.type !== 'session_settlement' && (
@@ -621,6 +636,11 @@ export default function CompanyBalanceIndex({
                                                     >
                                                         {movement.balance_after_label}
                                                     </p>
+                                                    {movement.balance_calculation_label && (
+                                                        <p className="mt-1 font-mono text-xs tabular-nums text-slate-600 dark:text-slate-300">
+                                                            {movement.balance_calculation_label}
+                                                        </p>
+                                                    )}
                                                     <p className="mt-0.5 text-xs text-slate-500">
                                                         {movement.balance_after_summary}
                                                     </p>

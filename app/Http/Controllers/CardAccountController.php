@@ -9,11 +9,14 @@ use App\Models\CardAccountMovement;
 use App\Services\CardAccountService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CardAccountController extends Controller
 {
+    private const PER_PAGE_OPTIONS = [20, 50, 75, 100];
+
     public function __construct(
         private readonly CardAccountService $cardAccounts,
     ) {}
@@ -22,12 +25,25 @@ class CardAccountController extends Controller
     {
         $summary = $this->cardAccounts->summary();
         $account = $summary['account'];
+        $perPage = $this->resolvePerPage($request);
 
-        $movements = $account
-            ? $account->movements()->with(['user:id,name', 'account:id,status'])->orderByDesc('movement_date')->orderByDesc('id')->get()->map(
-                fn (CardAccountMovement $movement) => $this->cardAccounts->formatMovement($movement),
-            )
-            : collect();
+        if ($account) {
+            $movements = $account->movements()
+                ->with(['user:id,name', 'account:id,status'])
+                ->orderByDesc('movement_date')
+                ->orderByDesc('id')
+                ->paginate($perPage)
+                ->withQueryString()
+                ->through(fn (CardAccountMovement $movement) => $this->cardAccounts->formatMovement($movement));
+        } else {
+            $movements = new LengthAwarePaginator(
+                [],
+                0,
+                $perPage,
+                1,
+                ['path' => $request->url(), 'query' => $request->query()],
+            );
+        }
 
         return Inertia::render('CardAccount/Index', [
             'account' => $account ? [
@@ -41,6 +57,7 @@ class CardAccountController extends Controller
             'balanceDisplay' => $summary['balance_display'],
             'readyToLiquidate' => abs($summary['balance']) < 0.01 && $account !== null,
             'movements' => $movements,
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
         ]);
     }
 
@@ -93,5 +110,12 @@ class CardAccountController extends Controller
         }
 
         return back()->with('success', 'Cuenta liquidada. Puedes iniciar una nueva cuando quieras.');
+    }
+
+    private function resolvePerPage(Request $request): int
+    {
+        $perPage = (int) $request->input('per_page', 20);
+
+        return in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : 20;
     }
 }

@@ -165,9 +165,14 @@ class CompanyBalanceController extends Controller
     private function formatMovement(CompanyBalanceMovement $movement, string $companyName): array
     {
         $amount = (float) $movement->amount;
+
+        $amountFormatted = abs($amount) >= 0.01
+            ? '$'.number_format(abs($amount), 2)
+            : null;
+
         $signedLabel = $amount > 0.01
             ? "A favor de {$companyName}"
-            : ($amount < -0.01 ? 'A tu favor' : 'Sin cambio');
+            : ($amount < -0.01 ? 'A tu favor' : 'Cuadrado');
 
         $session = $movement->cashSession;
 
@@ -192,6 +197,7 @@ class CompanyBalanceController extends Controller
             : $movement->notes;
 
         $balanceAfter = (float) $movement->balance_after;
+        $balanceBefore = round($balanceAfter - $amount, 2);
         $balanceAfterDisplay = $this->companyBalance->displayForBalance($balanceAfter, $companyName);
 
         return [
@@ -208,12 +214,20 @@ class CompanyBalanceController extends Controller
             'amount_absolute' => abs($amount) >= 0.01 ? abs($amount) : null,
             'type_label' => $typeLabel,
             'amount' => $amount,
-            'amount_label' => '$'.number_format(abs($amount), 2),
+            'amount_label' => $movement->type === CompanyBalanceMovement::TYPE_SESSION_SETTLEMENT
+                ? ($amountFormatted ?? 'Cuadrado')
+                : ($amountFormatted ?? '$0.00'),
             'favor' => $amount > 0.01
                 ? 'company'
                 : ($amount < -0.01 ? 'user' : 'neutral'),
             'signed_label' => $signedLabel,
             'balance_after' => $balanceAfter,
+            'balance_before' => $balanceBefore,
+            'balance_calculation_label' => $this->formatBalanceCalculation(
+                $balanceBefore,
+                $amount,
+                $balanceAfter,
+            ),
             'balance_after_label' => $balanceAfterDisplay['value'],
             'balance_after_summary' => $balanceAfterDisplay['label'],
             'balance_after_tone' => $balanceAfterDisplay['tone'],
@@ -231,5 +245,20 @@ class CompanyBalanceController extends Controller
         $perPage = (int) $request->input('per_page', 5);
 
         return in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : 5;
+    }
+
+    private function formatBalanceCalculation(float $balanceBefore, float $amount, float $balanceAfter): string
+    {
+        $before = number_format($balanceBefore, 2);
+        $after = number_format($balanceAfter, 2);
+
+        if (abs($amount) < 0.01) {
+            return "{$before} = {$after}";
+        }
+
+        $operator = $amount >= 0 ? '+' : '-';
+        $delta = number_format(abs($amount), 2);
+
+        return "{$before} {$operator} {$delta} = {$after}";
     }
 }

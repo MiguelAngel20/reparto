@@ -1,5 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
-import { Card } from '@/components/ui';
+import { Card, Pagination } from '@/components/ui';
 import {
     Dialog,
     DialogContent,
@@ -50,6 +50,16 @@ type MovementRow = {
     editable: boolean;
 };
 
+type PaginatedMovements = {
+    data: MovementRow[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+};
+
 interface CardAccountIndexProps {
     account: {
         id: number;
@@ -61,8 +71,11 @@ interface CardAccountIndexProps {
     totalPayments: number;
     balanceDisplay: BalanceDisplay;
     readyToLiquidate: boolean;
-    movements: MovementRow[];
+    movements: PaginatedMovements;
+    perPageOptions: number[];
 }
+
+const PER_PAGE_OPTIONS = [20, 50, 75, 100] as const;
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -86,6 +99,7 @@ export default function CardAccountIndex({
     balanceDisplay,
     readyToLiquidate,
     movements,
+    perPageOptions = [...PER_PAGE_OPTIONS],
 }: CardAccountIndexProps) {
     const {
         canCreate,
@@ -209,6 +223,25 @@ export default function CardAccountIndex({
         router.post('/cuenta-tarjeta/liquidar', {}, { preserveScroll: true });
     };
 
+    const visitMovements = (params: { page?: number; per_page?: number }) => {
+        router.get(
+            '/cuenta-tarjeta',
+            {
+                page: params.page ?? movements.current_page,
+                per_page: params.per_page ?? movements.per_page,
+            },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
+
+    const handlePerPageChange = (perPage: number) => {
+        visitMovements({ page: 1, per_page: perPage });
+    };
+
+    const handlePageChange = (page: number) => {
+        visitMovements({ page });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs} title="Cuenta tarjeta">
             <Head title="Cuenta tarjeta" />
@@ -302,14 +335,24 @@ export default function CardAccountIndex({
                 </Card>
 
                 <Card className={cardClass}>
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                        Movimientos
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Todos con permiso ven los mismos movimientos. Compras con la tarjeta y abonos del equipo.
-                    </p>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                                Movimientos
+                            </h2>
+                            <p className="mt-1 text-sm text-slate-500">
+                                Todos con permiso ven los mismos movimientos. Compras con la tarjeta y
+                                abonos del equipo.
+                            </p>
+                        </div>
+                        {movements.total > 0 && (
+                            <p className="text-xs text-slate-500">
+                                {movements.total} movimiento{movements.total !== 1 ? 's' : ''}
+                            </p>
+                        )}
+                    </div>
 
-                    {movements.length === 0 ? (
+                    {movements.data.length === 0 ? (
                         <p className="mt-4 rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-[#3a3a3a]">
                             {account
                                 ? 'Aún no hay movimientos en esta cuenta.'
@@ -317,7 +360,7 @@ export default function CardAccountIndex({
                         </p>
                     ) : (
                         <ul className="mt-4 space-y-2">
-                            {movements.map((movement) => {
+                            {movements.data.map((movement) => {
                                 const isPurchase = movement.type === 'purchase';
 
                                 return (
@@ -391,6 +434,43 @@ export default function CardAccountIndex({
                                 );
                             })}
                         </ul>
+                    )}
+
+                    {movements.total > 0 && (
+                        <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-[#3a3a3a] sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                                <label htmlFor="card-movements-per-page" className="shrink-0">
+                                    Mostrar
+                                </label>
+                                <select
+                                    id="card-movements-per-page"
+                                    value={movements.per_page}
+                                    onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                                    className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-slate-200"
+                                >
+                                    {perPageOptions.map((option) => (
+                                        <option key={option} value={option}>
+                                            {option}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className="shrink-0">por página</span>
+                                {movements.from !== null && movements.to !== null && (
+                                    <span className="text-xs sm:ml-1">
+                                        ({movements.from}–{movements.to} de {movements.total})
+                                    </span>
+                                )}
+                            </div>
+
+                            {movements.last_page > 1 && (
+                                <Pagination
+                                    currentPage={movements.current_page}
+                                    totalPages={movements.last_page}
+                                    onPageChange={handlePageChange}
+                                    iconOnly
+                                />
+                            )}
+                        </div>
                     )}
                 </Card>
 

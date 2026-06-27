@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('captura-manual')->name('manual-capture.')->middleware('section:'.UserSection::MANUAL_CAPTURE.',view')->group(function () {
         Route::get('/', [ManualCaptureController::class, 'index'])->name('index');
+        Route::get('/jornada/{session}/ver', [ManualCaptureController::class, 'show'])->name('show');
         Route::get('/jornada/{session}', [ManualCaptureController::class, 'edit'])->name('edit');
         Route::middleware('section:'.UserSection::MANUAL_CAPTURE.',edit')->group(function () {
             Route::post('/sesion', [ManualCaptureSessionController::class, 'store'])->name('session.store');
@@ -113,6 +114,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('reparto')->name('reparto.')->middleware('section:'.UserSection::REPARTO.',view')->group(function () {
         Route::get('/', [RepartoController::class, 'index'])->name('index');
+        Route::get('/jornada/{session}', [RepartoController::class, 'showSession'])->name('session.show');
         Route::get('/pedidos/{order}', [DeliveryOrderController::class, 'show'])->name('orders.show');
         Route::get('/pedidos/{order}/editar', [DeliveryOrderController::class, 'edit'])->name('orders.edit');
         Route::middleware('section:'.UserSection::REPARTO.',edit')->group(function () {

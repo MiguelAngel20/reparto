@@ -6,7 +6,11 @@ use App\Models\CashSession;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
 use App\Services\CashSessionSummary;
+use App\Services\DailyEarningsHelper;
 use App\Services\DeliveryCommissionCalculator;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 trait RepartoFormatter
 {
@@ -190,7 +194,7 @@ trait RepartoFormatter
         ];
     }
 
-    protected function formatSessionWithSummary(CashSession $session): array
+    protected function formatSessionWithSummary(CashSession $session, ?int $userId = null): array
     {
         $summary = CashSessionSummary::forSession($session);
 
@@ -199,7 +203,7 @@ trait RepartoFormatter
             2,
         );
 
-        return array_merge(
+        $data = array_merge(
             $this->formatSessionCard($session),
             $summary,
             [
@@ -218,6 +222,13 @@ trait RepartoFormatter
                 'clikio_settlement' => $summary['clikio_settlement'],
             ],
         );
+
+        if ($userId !== null && ! empty($data['capture_date'])) {
+            $day = DailyEarningsHelper::daySummaryForUser($userId, $data['capture_date']);
+            $data['net_earnings'] = $day['net_earnings'];
+        }
+
+        return $data;
     }
 
     protected function formatSessionCard(CashSession $session): array
@@ -261,5 +272,50 @@ trait RepartoFormatter
         [$year, $month, $day] = explode('-', $this->dateOnlyString($date));
 
         return "{$day}/{$month}/{$year}";
+    }
+
+    protected function renderSessionView(Request $request, CashSession $session, string $origin): Response
+    {
+        abort_unless($session->user_id === $request->user()->id, 403);
+        abort_unless(
+            $session->status === CashSession::STATUS_CLOSED,
+            403,
+            'Solo puedes consultar jornadas cerradas.',
+        );
+
+        $user = $request->user();
+
+        $session->loadCount([
+            'orders as entries_count' => fn ($q) => $q->where('status', DeliveryOrder::STATUS_COMPLETED),
+        ]);
+
+        $sessionData = $this->formatSessionWithSummary($session, $user->id);
+
+        if ($session->isLive()) {
+            $sessionData = array_merge($sessionData, $this->formatCashSession($session));
+        }
+
+        $orders = $session->orders()
+            ->where('status', DeliveryOrder::STATUS_COMPLETED)
+            ->orderBy('completed_at')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (DeliveryOrder $order) => $this->formatSessionOrderRow($order))
+            ->values()
+            ->all();
+
+        [$backUrl, $backLabel, $pageTitle] = match ($origin) {
+            'reparto' => [route('reparto.index'), 'Iniciar jornada', 'Detalle de jornada'],
+            default => [route('manual-capture.index'), 'Captura manual', 'Detalle de captura'],
+        };
+
+        return Inertia::render('Reparto/SessionShow', [
+            'session' => $sessionData,
+            'orders' => $orders,
+            'companyName' => $user->company_name ?? 'Clikio',
+            'backUrl' => $backUrl,
+            'backLabel' => $backLabel,
+            'pageTitle' => $pageTitle,
+        ]);
     }
 }

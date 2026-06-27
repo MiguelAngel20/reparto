@@ -309,6 +309,7 @@ export default function ManualCaptureIndex({
                                 sessions={savedSessions}
                                 companyName={companyName}
                                 showEditButton={canEdit}
+                                viewHref={(id) => `/captura-manual/jornada/${id}/ver`}
                             />
                         )}
                     </>

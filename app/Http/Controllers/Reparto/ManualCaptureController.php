@@ -40,6 +40,11 @@ class ManualCaptureController extends Controller
         return $this->renderIndex($request, $session);
     }
 
+    public function show(Request $request, CashSession $session): Response
+    {
+        return $this->renderSessionView($request, $session, 'manual_capture');
+    }
+
     public function storeEntry(
         StoreManualCaptureEntryRequest $request,
         CashSession $session,
@@ -135,7 +140,7 @@ class ManualCaptureController extends Controller
             ->orderByRaw('COALESCE(capture_date, DATE(started_at)) DESC')
             ->orderByDesc('started_at')
             ->get()
-            ->map(fn ($s) => $this->formatSessionWithSummary($s));
+            ->map(fn ($s) => $this->formatSessionWithSummary($s, $user->id));
 
         $activeSessionData = null;
         $entries = [];
@@ -144,7 +149,7 @@ class ManualCaptureController extends Controller
             $activeSession->loadCount([
                 'orders as entries_count' => fn ($q) => $q->where('status', DeliveryOrder::STATUS_COMPLETED),
             ]);
-            $activeSessionData = $this->formatSessionWithSummary($activeSession);
+            $activeSessionData = $this->formatSessionWithSummary($activeSession, $user->id);
             $orders = $activeSession->orders()
                 ->where('status', DeliveryOrder::STATUS_COMPLETED)
                 ->orderBy('id')

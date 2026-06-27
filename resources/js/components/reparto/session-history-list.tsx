@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatCurrency, cn, localDateInputValue } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
-import { Pencil } from 'lucide-react';
+import { Eye, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 export type SessionHistoryItem = {
@@ -14,6 +14,7 @@ export type SessionHistoryItem = {
     entries_count?: number;
     count?: number;
     user_earnings?: number;
+    net_earnings?: number;
     total_clikio_commission?: number;
     total_user_extra?: number;
     total_clikio_extra?: number;
@@ -37,7 +38,7 @@ function StatPill({
 }: {
     label: string;
     value: string;
-    tone?: 'emerald' | 'blue' | 'amber' | 'violet';
+    tone?: 'emerald' | 'blue' | 'amber' | 'violet' | 'rose';
 }) {
     const valueClass = cn(
         'font-semibold tabular-nums text-sm',
@@ -45,6 +46,7 @@ function StatPill({
         tone === 'blue' && 'text-blue-600',
         tone === 'amber' && 'text-amber-600',
         tone === 'violet' && 'text-violet-600',
+        tone === 'rose' && 'text-rose-600',
         !tone && 'text-slate-900 dark:text-white',
     );
 
@@ -60,8 +62,10 @@ type SessionHistoryListProps = {
     sessions: SessionHistoryItem[];
     companyName: string;
     title?: string;
+    showViewButton?: boolean;
     showEditButton?: boolean;
     showWorkDuration?: boolean;
+    viewHref?: (sessionId: number) => string;
     editHref?: (sessionId: number) => string;
 };
 
@@ -69,8 +73,10 @@ export function SessionHistoryList({
     sessions,
     companyName,
     title = 'Jornadas registradas',
+    showViewButton = true,
     showEditButton = false,
     showWorkDuration = false,
+    viewHref = (id) => `/reparto/jornada/${id}`,
     editHref = (id) => `/captura-manual/jornada/${id}`,
 }: SessionHistoryListProps) {
     const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
@@ -149,6 +155,14 @@ export function SessionHistoryList({
                               ? 'violet'
                               : undefined;
 
+                        const netEarnings = s.net_earnings;
+                        const saldoTone =
+                            netEarnings !== undefined && netEarnings > 0.01
+                                ? 'emerald'
+                                : netEarnings !== undefined && netEarnings < -0.01
+                                  ? 'rose'
+                                  : undefined;
+
                         return (
                             <li
                                 key={s.id}
@@ -172,17 +186,37 @@ export function SessionHistoryList({
                                                 {s.work_duration_formatted}
                                             </span>
                                         )}
-                                        {showEditButton && (
-                                            <Link
-                                                href={editHref(s.id)}
-                                                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-sidebar-active px-3 text-xs font-semibold text-white"
-                                            >
-                                                <Pencil className="h-3.5 w-3.5" />
-                                                Editar
-                                            </Link>
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                            {showViewButton && (
+                                                <Link
+                                                    href={viewHref(s.id)}
+                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-300 dark:hover:bg-[#333]"
+                                                    title="Ver jornada"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Link>
+                                            )}
+                                            {showEditButton && (
+                                                <Link
+                                                    href={editHref(s.id)}
+                                                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-sidebar-active px-3 text-xs font-semibold text-white"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                    Editar
+                                                </Link>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+                                {netEarnings !== undefined && (
+                                    <div className="mb-2">
+                                        <StatPill
+                                            label="Saldo del día"
+                                            value={`$${formatCurrency(Math.abs(netEarnings))}${netEarnings < -0.01 ? ' (neg.)' : ''}`}
+                                            tone={saldoTone}
+                                        />
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
                                     <StatPill
                                         label="Mis ganancias"

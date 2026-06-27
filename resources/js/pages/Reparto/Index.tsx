@@ -267,7 +267,41 @@ export default function RepartoIndex({
                         </button>
                         )}
                     </Card>
-                ) : (
+                ) : null}
+
+                {!openSession && !canStartJornadaToday && (
+                    <Card
+                        className={cn(
+                            cardClass,
+                            'p-4',
+                            netEarningsToday > 0.01 && 'border-emerald-200 dark:border-emerald-900/50',
+                            netEarningsToday < -0.01 && 'border-rose-200 dark:border-rose-900/50',
+                        )}
+                    >
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                            Saldo del día · {todayDateFormatted}
+                        </p>
+                        <p
+                            className={cn(
+                                'mt-1 font-mono text-3xl font-bold tabular-nums',
+                                netEarningsToday > 0.01
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : netEarningsToday < -0.01
+                                      ? 'text-rose-600 dark:text-rose-400'
+                                      : 'text-slate-900 dark:text-white',
+                            )}
+                        >
+                            ${formatCurrency(Math.abs(netEarningsToday))}
+                        </p>
+                        {netEarningsToday < -0.01 && (
+                            <p className="mt-0.5 text-sm font-semibold text-rose-600 dark:text-rose-400">
+                                en negativo
+                            </p>
+                        )}
+                    </Card>
+                )}
+
+                {openSession ? (
                     <>
                         <Card className={`${cardClass} border-2 border-sidebar-active/30 p-4 sm:p-5`}>
                             {/* Móvil: 4 cards compactas en grid 2×2 */}
@@ -924,7 +958,7 @@ export default function RepartoIndex({
                             )}
                         </Card>
                     </>
-                )}
+                ) : null}
 
                 <SessionHistoryList
                     sessions={recentSessions}
