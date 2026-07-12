@@ -187,26 +187,13 @@ export function SessionHistoryList({
                                 key={s.id}
                                 className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]/50"
                             >
-                                <div className="mb-3 flex items-start justify-between gap-2">
-                                    <div className="flex min-w-0 flex-col items-start gap-1.5">
+                                <div className="mb-3 flex flex-col gap-2">
+                                    <div className="flex items-start justify-between gap-2">
                                         <p className="text-base font-semibold text-slate-900 dark:text-white">
                                             {s.capture_date_formatted}
                                         </p>
-                                        <span className="rounded-md bg-sidebar-active/10 px-2 py-0.5 text-xs font-medium text-sidebar-active">
-                                            {s.session_type_label}
-                                        </span>
-                                        <span className="text-xs text-slate-500">
-                                            {s.entries_count ?? s.count ?? 0} pedidos
-                                        </span>
-                                    </div>
-                                    <div className="flex shrink-0 flex-col items-end gap-2">
-                                        {showWorkDuration && s.work_duration_formatted && (
-                                            <span className="rounded-lg bg-sidebar-active/10 px-3 py-1.5 text-sm font-semibold text-sidebar-active">
-                                                {s.work_duration_formatted}
-                                            </span>
-                                        )}
                                         {(showEditButton || showDeleteButton) && (
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex shrink-0 items-center gap-2">
                                                 {showEditButton && (
                                                     <Link
                                                         href={editHref(s.id)}
@@ -235,6 +222,19 @@ export function SessionHistoryList({
                                             </div>
                                         )}
                                     </div>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="rounded-md bg-sidebar-active/10 px-2 py-0.5 text-[10px] font-medium text-sidebar-active sm:px-2 sm:text-xs">
+                                            {s.session_type_label}
+                                        </span>
+                                        {showWorkDuration && s.work_duration_formatted && (
+                                            <span className="max-w-full rounded-md bg-sidebar-active/10 px-2 py-0.5 text-[10px] font-semibold leading-tight text-sidebar-active sm:rounded-lg sm:px-3 sm:py-1 sm:text-xs md:text-sm">
+                                                {s.work_duration_formatted}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="text-xs text-slate-500">
+                                        {s.entries_count ?? s.count ?? 0} pedidos
+                                    </span>
                                 </div>
                                 {netEarnings !== undefined && (
                                     <div className="mb-2">
