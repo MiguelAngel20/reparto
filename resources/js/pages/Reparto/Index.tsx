@@ -220,30 +220,6 @@ export default function RepartoIndex({
         if (flash?.error) toast.error(flash.error);
     }, [flash?.success, flash?.error]);
 
-    useEffect(() => {
-        if (!openSession) {
-            return;
-        }
-
-        const intervalId = window.setInterval(() => {
-            router.reload({
-                only: [
-                    'openSession',
-                    'sessionOrders',
-                    'sessionPersonalServices',
-                    'sessionExpenses',
-                    'activeOrders',
-                    'activePersonalServices',
-                    'totalExpensesToday',
-                    'totalPersonalServicesToday',
-                    'netEarningsToday',
-                ],
-            });
-        }, 5000);
-
-        return () => window.clearInterval(intervalId);
-    }, [openSession?.id]);
-
     const startJornada = () => {
         if (!canStartJornadaToday) {
             return;

@@ -84,30 +84,6 @@ export default function PersonalServiceIndex({
         if (flash?.error) toast.error(flash.error);
     }, [flash?.success, flash?.error]);
 
-    useEffect(() => {
-        if (!hasOpenLiveSession) {
-            return;
-        }
-
-        const intervalId = window.setInterval(() => {
-            router.reload({
-                only: [
-                    'todayEarnings',
-                    'sessionEarnings',
-                    'totalPersonalServices',
-                    'totalExpenses',
-                    'netEarnings',
-                    'completedOrdersToday',
-                    'hasOpenLiveSession',
-                    'hasSessionToday',
-                    'services',
-                ],
-            });
-        }, 5000);
-
-        return () => window.clearInterval(intervalId);
-    }, [hasOpenLiveSession]);
-
     const submitAdd = (e: React.FormEvent) => {
         e.preventDefault();
         addForm.post('/mis-servicios', {

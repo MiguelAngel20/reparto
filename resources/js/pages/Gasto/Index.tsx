@@ -80,28 +80,6 @@ export default function GastoIndex({
         if (flash?.error) toast.error(flash.error);
     }, [flash?.success, flash?.error]);
 
-    useEffect(() => {
-        if (!hasOpenLiveSession) {
-            return;
-        }
-
-        const intervalId = window.setInterval(() => {
-            router.reload({
-                only: [
-                    'todayEarnings',
-                    'totalExpenses',
-                    'netEarnings',
-                    'completedOrdersToday',
-                    'hasOpenLiveSession',
-                    'hasSessionToday',
-                    'expenses',
-                ],
-            });
-        }, 5000);
-
-        return () => window.clearInterval(intervalId);
-    }, [hasOpenLiveSession]);
-
     const submitExpense = (e: React.FormEvent) => {
         e.preventDefault();
         expenseForm.post('/gasto', {
