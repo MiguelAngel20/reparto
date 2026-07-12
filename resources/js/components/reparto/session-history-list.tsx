@@ -1,9 +1,10 @@
 import { Card } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { confirmAction } from '@/lib/sweetalert';
 import { formatCurrency, cn, localDateInputValue } from '@/lib/utils';
-import { Link } from '@inertiajs/react';
-import { Eye, Pencil } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 export type SessionHistoryItem = {
@@ -30,6 +31,9 @@ function firstDayOfMonth(): string {
 
 const cardClass =
     'border border-slate-200/80 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626] sm:p-5';
+
+const actionIconClass =
+    'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors';
 
 function StatPill({
     label,
@@ -62,22 +66,24 @@ type SessionHistoryListProps = {
     sessions: SessionHistoryItem[];
     companyName: string;
     title?: string;
-    showViewButton?: boolean;
     showEditButton?: boolean;
+    showDeleteButton?: boolean;
     showWorkDuration?: boolean;
-    viewHref?: (sessionId: number) => string;
     editHref?: (sessionId: number) => string;
+    deleteHref?: (sessionId: number) => string;
+    deleteLabel?: string;
 };
 
 export function SessionHistoryList({
     sessions,
     companyName,
     title = 'Jornadas registradas',
-    showViewButton = true,
     showEditButton = false,
+    showDeleteButton = false,
     showWorkDuration = false,
-    viewHref = (id) => `/reparto/jornada/${id}`,
-    editHref = (id) => `/captura-manual/jornada/${id}`,
+    editHref = (id) => `/reparto/jornada/${id}/editar`,
+    deleteHref = (id) => `/reparto/jornada/${id}`,
+    deleteLabel = 'jornada',
 }: SessionHistoryListProps) {
     const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
     const [dateTo, setDateTo] = useState(localDateInputValue);
@@ -90,6 +96,19 @@ export function SessionHistoryList({
             return true;
         });
     }, [sessions, dateFrom, dateTo]);
+
+    const deleteSession = async (session: SessionHistoryItem) => {
+        const confirmed = await confirmAction({
+            title: `¿Eliminar ${deleteLabel}?`,
+            text: `Se eliminará ${session.session_type_label} del ${session.capture_date_formatted} y todos sus pedidos. Esta acción no se puede deshacer.`,
+            confirmText: 'Sí, eliminar',
+            icon: 'warning',
+        });
+
+        if (!confirmed) return;
+
+        router.delete(deleteHref(session.id), { preserveScroll: true });
+    };
 
     if (sessions.length === 0) {
         return null;
@@ -186,26 +205,35 @@ export function SessionHistoryList({
                                                 {s.work_duration_formatted}
                                             </span>
                                         )}
-                                        <div className="flex items-center gap-2">
-                                            {showViewButton && (
-                                                <Link
-                                                    href={viewHref(s.id)}
-                                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-[#3a3a3a] dark:bg-[#262626] dark:text-slate-300 dark:hover:bg-[#333]"
-                                                    title="Ver jornada"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
-                                            )}
-                                            {showEditButton && (
-                                                <Link
-                                                    href={editHref(s.id)}
-                                                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-sidebar-active px-3 text-xs font-semibold text-white"
-                                                >
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                    Editar
-                                                </Link>
-                                            )}
-                                        </div>
+                                        {(showEditButton || showDeleteButton) && (
+                                            <div className="flex items-center gap-2">
+                                                {showEditButton && (
+                                                    <Link
+                                                        href={editHref(s.id)}
+                                                        className={cn(
+                                                            actionIconClass,
+                                                            'border-sidebar-active/30 bg-sidebar-active/10 text-sidebar-active hover:bg-sidebar-active/20',
+                                                        )}
+                                                        title="Editar"
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Link>
+                                                )}
+                                                {showDeleteButton && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => deleteSession(s)}
+                                                        className={cn(
+                                                            actionIconClass,
+                                                            'border-rose-200 bg-white text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:bg-[#262626] dark:text-rose-400 dark:hover:bg-rose-950/30',
+                                                        )}
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 {netEarnings !== undefined && (

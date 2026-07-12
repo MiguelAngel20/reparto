@@ -324,6 +324,27 @@ class CompanyBalanceService
         $this->recalculateUserBalance($user);
     }
 
+    public function deleteClosedSession(CashSession $session, User $user): void
+    {
+        if ($session->user_id !== $user->id) {
+            throw new \InvalidArgumentException('No puedes eliminar esta jornada.');
+        }
+
+        if ($session->status !== CashSession::STATUS_CLOSED) {
+            throw new \InvalidArgumentException('Solo puedes eliminar jornadas cerradas.');
+        }
+
+        DB::transaction(function () use ($session, $user) {
+            CompanyBalanceMovement::query()
+                ->where('cash_session_id', $session->id)
+                ->delete();
+
+            $session->delete();
+
+            $this->recalculateUserBalance($user);
+        });
+    }
+
     public function sessionAffectsCompanyBalance(CashSession $session, ?Carbon $anchorDate = null): bool
     {
         if ($anchorDate === null) {

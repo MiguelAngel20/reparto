@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Reparto;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Reparto\StoreManualCaptureEntryRequest;
 use App\Models\CashSession;
 use App\Models\DeliveryOrder;
 use App\Services\CashSessionSummary;
+use App\Services\CompanyBalanceService;
 use App\Services\DailyEarningsHelper;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +16,16 @@ use Inertia\Response;
 
 class RepartoController extends Controller
 {
-    use RepartoFormatter;
+    use EditableCashSessionEntries, RepartoFormatter;
+
+    public function __construct(
+        private readonly CompanyBalanceService $companyBalance,
+    ) {}
+
+    protected function companyBalance(): CompanyBalanceService
+    {
+        return $this->companyBalance;
+    }
 
     public function index(Request $request): Response|RedirectResponse
     {
@@ -87,5 +98,74 @@ class RepartoController extends Controller
         abort_unless($session->isLive(), 404);
 
         return $this->renderSessionView($request, $session, 'reparto');
+    }
+
+    public function editSession(Request $request, CashSession $session): Response
+    {
+        $this->assertEditableSession($request, $session);
+
+        return $this->renderSessionEdit($request, $session);
+    }
+
+    public function updateSessionEntry(
+        StoreManualCaptureEntryRequest $request,
+        CashSession $session,
+        DeliveryOrder $order,
+    ): RedirectResponse {
+        $this->assertEditableSession($request, $session);
+        abort_unless($session->isLive(), 403);
+        $this->assertOrderBelongsToSession($order, $session);
+
+        $order->update(
+            $this->buildOrderAttributes($request->user(), $session, $request->validated(), $order),
+        );
+
+        $this->refreshCompanyBalanceIfNeeded($session);
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Pedido actualizado.');
+    }
+
+    public function destroySessionEntry(
+        Request $request,
+        CashSession $session,
+        DeliveryOrder $order,
+    ): RedirectResponse {
+        abort_unless($session->user_id === $request->user()->id, 403);
+        abort_unless($session->isLive(), 403);
+        $this->assertOrderBelongsToSession($order, $session);
+
+        if ($session->isOpen()) {
+            $this->deleteCompletedOrderFromSession($session, $order);
+
+            return redirect()
+                ->route('reparto.index')
+                ->with('success', 'Pedido eliminado.');
+        }
+
+        $this->assertEditableSession($request, $session);
+        $this->deleteCompletedOrderFromSession($session, $order);
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Pedido eliminado.');
+    }
+
+    public function destroySession(Request $request, CashSession $session): RedirectResponse
+    {
+        abort_unless($session->isLive(), 403);
+
+        try {
+            $this->companyBalance->deleteClosedSession($session, $request->user());
+        } catch (\InvalidArgumentException $e) {
+            return redirect()
+                ->route('reparto.index')
+                ->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('reparto.index')
+            ->with('success', 'Jornada eliminada correctamente.');
     }
 }

@@ -22,8 +22,8 @@ import {
     ActiveOrdersBar,
     type ActiveOrderSummary,
 } from '@/components/reparto/active-orders-bar';
-import { Briefcase, Package, Pencil, Play, Receipt, Scale, TrendingDown } from 'lucide-react';
-import { confirmCloseCashSession } from '@/lib/sweetalert';
+import { Briefcase, Package, Pencil, Play, Receipt, Scale, Trash2, TrendingDown } from 'lucide-react';
+import { confirmCloseCashSession, confirmAction } from '@/lib/sweetalert';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -221,6 +221,23 @@ export default function RepartoIndex({
                 personalServiceForm.reset();
                 setPersonalServiceModalOpen(false);
             },
+        });
+    };
+
+    const deleteSessionOrder = async (orderId: number, orderName: string) => {
+        if (!openSession) return;
+
+        const confirmed = await confirmAction({
+            title: '¿Eliminar pedido?',
+            text: `${orderName} — se recalcularán las ganancias y el cuadre del día.`,
+            confirmText: 'Sí, eliminar',
+            icon: 'warning',
+        });
+
+        if (!confirmed) return;
+
+        router.delete(`/reparto/jornada/${openSession.id}/pedidos/${orderId}`, {
+            preserveScroll: true,
         });
     };
 
@@ -899,7 +916,7 @@ export default function RepartoIndex({
                                                     </td>
                                                     {canEdit && (
                                                     <td className="px-4 py-3">
-                                                        <div className="flex justify-center">
+                                                        <div className="flex justify-center gap-1">
                                                             <Link
                                                                 href={`/reparto/pedidos/${row.id}/editar`}
                                                                 className="rounded p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
@@ -907,6 +924,19 @@ export default function RepartoIndex({
                                                             >
                                                                 <Pencil className="h-4 w-4" />
                                                             </Link>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    deleteSessionOrder(
+                                                                        row.id,
+                                                                        row.name,
+                                                                    )
+                                                                }
+                                                                className="rounded p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                                                title="Eliminar pedido"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
                                                         </div>
                                                     </td>
                                                     )}
@@ -965,6 +995,11 @@ export default function RepartoIndex({
                     companyName={companyName}
                     title="Jornadas recientes"
                     showWorkDuration
+                    showEditButton={canEdit}
+                    showDeleteButton={canEdit}
+                    editHref={(id) => `/reparto/jornada/${id}/editar`}
+                    deleteHref={(id) => `/reparto/jornada/${id}`}
+                    deleteLabel="jornada"
                 />
             </div>
         </AppLayout>

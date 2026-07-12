@@ -109,17 +109,22 @@ Route::middleware('auth')->group(function () {
             Route::post('/jornada/{session}/pedidos', [ManualCaptureController::class, 'storeEntry'])->name('entries.store');
             Route::put('/jornada/{session}/pedidos/{order}', [ManualCaptureController::class, 'updateEntry'])->name('entries.update');
             Route::delete('/jornada/{session}/pedidos/{order}', [ManualCaptureController::class, 'destroyEntry'])->name('entries.destroy');
+            Route::delete('/jornada/{session}', [ManualCaptureController::class, 'destroySession'])->name('session.destroy');
         });
     });
 
     Route::prefix('reparto')->name('reparto.')->middleware('section:'.UserSection::REPARTO.',view')->group(function () {
         Route::get('/', [RepartoController::class, 'index'])->name('index');
         Route::get('/jornada/{session}', [RepartoController::class, 'showSession'])->name('session.show');
+        Route::get('/jornada/{session}/editar', [RepartoController::class, 'editSession'])->name('session.edit');
         Route::get('/pedidos/{order}', [DeliveryOrderController::class, 'show'])->name('orders.show');
         Route::get('/pedidos/{order}/editar', [DeliveryOrderController::class, 'edit'])->name('orders.edit');
         Route::middleware('section:'.UserSection::REPARTO.',edit')->group(function () {
             Route::post('/caja', [CashSessionController::class, 'store'])->name('caja.store');
             Route::post('/caja/cerrar', [CashSessionController::class, 'close'])->name('caja.close');
+            Route::delete('/jornada/{session}', [RepartoController::class, 'destroySession'])->name('session.destroy');
+            Route::put('/jornada/{session}/pedidos/{order}', [RepartoController::class, 'updateSessionEntry'])->name('session.entries.update');
+            Route::delete('/jornada/{session}/pedidos/{order}', [RepartoController::class, 'destroySessionEntry'])->name('session.entries.destroy');
             Route::post('/pedidos/iniciar', [DeliveryOrderController::class, 'start'])->name('orders.start');
             Route::put('/pedidos/{order}', [DeliveryOrderController::class, 'update'])->name('orders.update');
             Route::put('/pedidos/{order}/actualizar', [DeliveryOrderController::class, 'updateCompleted'])->name('orders.update-completed');

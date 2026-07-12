@@ -3,7 +3,7 @@ import { Card } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { calculateCommission } from '@/lib/delivery-commission';
-import { confirmFinalizeManualCapture } from '@/lib/sweetalert';
+import { confirmFinalizeManualCapture, confirmAction } from '@/lib/sweetalert';
 import { formatCurrency, cn, localDateInputValue } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
@@ -14,7 +14,6 @@ import {
     ClipboardList,
     Pencil,
     Plus,
-    Trash2,
     Calendar,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -23,17 +22,12 @@ import {
     SessionHistoryList,
     type SessionHistoryItem,
 } from '@/components/reparto/session-history-list';
+import {
+    SessionEntriesTable,
+    type SessionEntryRow,
+} from '@/components/reparto/session-entries-table';
 
-type EntryRow = {
-    id: number;
-    name: string;
-    service_cost: number;
-    user_commission: number;
-    clikio_commission: number;
-    user_extra: number;
-    clikio_extra: number;
-    clikio_discounts: number;
-};
+type EntryRow = SessionEntryRow;
 
 type ManualCaptureSessionData = SessionHistoryItem & {
     session_type: 'live' | 'manual';
@@ -222,9 +216,26 @@ export default function ManualCaptureIndex({
         });
     };
 
-    const deleteEntry = (id: number) => {
-        if (!entriesBaseUrl || !window.confirm('¿Eliminar este pedido?')) return;
-        router.delete(`${entriesBaseUrl}/${id}`, { preserveScroll: true });
+    const deleteEntry = async (id: number) => {
+        if (!entriesBaseUrl) return;
+
+        const confirmed = await confirmAction({
+            title: '¿Eliminar pedido?',
+            text: 'Se recalcularán las ganancias y el cuadre del día.',
+            confirmText: 'Sí, eliminar',
+            icon: 'warning',
+        });
+
+        if (!confirmed) return;
+
+        router.delete(`${entriesBaseUrl}/${id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                if (editingId === id) {
+                    resetEntryForm();
+                }
+            },
+        });
     };
 
     const submitCloseCapture = async () => {
@@ -308,8 +319,12 @@ export default function ManualCaptureIndex({
                             <SessionHistoryList
                                 sessions={savedSessions}
                                 companyName={companyName}
+                                title="Capturas manuales"
                                 showEditButton={canEdit}
-                                viewHref={(id) => `/captura-manual/jornada/${id}/ver`}
+                                showDeleteButton={canEdit}
+                                editHref={(id) => `/captura-manual/jornada/${id}`}
+                                deleteHref={(id) => `/captura-manual/jornada/${id}`}
+                                deleteLabel="captura"
                             />
                         )}
                     </>
@@ -541,12 +556,12 @@ export default function ManualCaptureIndex({
                                     Agrega los pedidos que anotaste en el celular.
                                 </p>
                             ) : (
-                                <EntriesTable
+                                <SessionEntriesTable
                                     entries={entries}
                                     tableTotals={tableTotals}
                                     companyName={companyName}
                                     onEdit={canEdit ? loadEntry : undefined}
-                                    onDelete={canEdit && isManualSession ? deleteEntry : undefined}
+                                    onDelete={canEdit ? deleteEntry : undefined}
                                 />
                             )}
                         </Card>
@@ -554,126 +569,5 @@ export default function ManualCaptureIndex({
                 )}
             </div>
         </AppLayout>
-    );
-}
-
-function EntriesTable({
-    entries,
-    tableTotals,
-    companyName,
-    onEdit,
-    onDelete,
-}: {
-    entries: EntryRow[];
-    tableTotals: {
-        service_cost: number;
-        user_commission: number;
-        clikio_commission: number;
-        user_extra: number;
-        clikio_extra: number;
-        clikio_discounts: number;
-    };
-    companyName: string;
-    onEdit?: (row: EntryRow) => void;
-    onDelete?: (id: number) => void;
-}) {
-    const showActions = Boolean(onEdit);
-    return (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#3a3a3a]">
-            <table className="w-full min-w-[720px] text-left text-sm">
-                <thead>
-                    <tr className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-[#1f1f1f]">
-                        <th className="px-3 py-2">Nombre</th>
-                        <th className="px-3 py-2 text-right">Monto</th>
-                        <th className="px-3 py-2 text-right">Mi gan.</th>
-                        <th className="px-3 py-2 text-right">{companyName}</th>
-                        <th className="px-3 py-2 text-right">Extra</th>
-                        <th className="px-3 py-2 text-right">Extra {companyName}</th>
-                        <th className="px-3 py-2 text-right">Desc.</th>
-                        {showActions && <th className="px-3 py-2" />}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-[#333]">
-                    {entries.map((row, index) => (
-                        <tr key={row.id}>
-                            <td className="px-3 py-2">
-                                <span className="mr-1 text-slate-400">{index + 1}.</span>
-                                {row.name}
-                            </td>
-                            <td className="px-3 py-2 text-right font-medium">
-                                ${formatCurrency(row.service_cost)}
-                            </td>
-                            <td className="px-3 py-2 text-right text-emerald-600">
-                                ${formatCurrency(row.user_commission)}
-                            </td>
-                            <td className="px-3 py-2 text-right text-blue-600">
-                                ${formatCurrency(row.clikio_commission)}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                                {row.user_extra > 0
-                                    ? `$${formatCurrency(row.user_extra)}`
-                                    : '—'}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                                {row.clikio_extra > 0
-                                    ? `$${formatCurrency(row.clikio_extra)}`
-                                    : '—'}
-                            </td>
-                            <td className="px-3 py-2 text-right text-amber-600">
-                                {row.clikio_discounts > 0
-                                    ? `$${formatCurrency(row.clikio_discounts)}`
-                                    : '—'}
-                            </td>
-                            {showActions && onEdit && (
-                            <td className="px-3 py-2">
-                                <div className="flex justify-end gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => onEdit(row)}
-                                        className="rounded p-1.5 text-slate-500 hover:bg-slate-100"
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </button>
-                                    {onDelete && (
-                                        <button
-                                            type="button"
-                                            onClick={() => onDelete(row.id)}
-                                            className="rounded p-1.5 text-rose-500 hover:bg-rose-50"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    )}
-                                </div>
-                            </td>
-                            )}
-                        </tr>
-                    ))}
-                </tbody>
-                <tfoot>
-                    <tr className="bg-slate-50 font-semibold dark:bg-[#1f1f1f]">
-                        <td className="px-3 py-2">Total</td>
-                        <td className="px-3 py-2 text-right">
-                            ${formatCurrency(tableTotals.service_cost)}
-                        </td>
-                        <td className="px-3 py-2 text-right text-emerald-600">
-                            ${formatCurrency(tableTotals.user_commission)}
-                        </td>
-                        <td className="px-3 py-2 text-right text-blue-600">
-                            ${formatCurrency(tableTotals.clikio_commission)}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                            ${formatCurrency(tableTotals.user_extra)}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                            ${formatCurrency(tableTotals.clikio_extra)}
-                        </td>
-                        <td className="px-3 py-2 text-right text-amber-600">
-                            ${formatCurrency(tableTotals.clikio_discounts)}
-                        </td>
-                        {showActions && <td />}
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
     );
 }

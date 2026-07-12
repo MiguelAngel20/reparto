@@ -318,4 +318,49 @@ trait RepartoFormatter
             'pageTitle' => $pageTitle,
         ]);
     }
+
+    protected function renderSessionEdit(Request $request, CashSession $session): Response
+    {
+        abort_unless($session->isLive(), 404);
+        abort_unless($session->user_id === $request->user()->id, 403);
+        abort_unless(
+            $session->status === CashSession::STATUS_CLOSED,
+            403,
+            'Solo puedes editar jornadas cerradas.',
+        );
+
+        $user = $request->user();
+
+        $session->loadCount([
+            'orders as entries_count' => fn ($q) => $q->where('status', DeliveryOrder::STATUS_COMPLETED),
+        ]);
+
+        $sessionData = array_merge(
+            $this->formatSessionWithSummary($session, $user->id),
+            $this->formatCashSession($session),
+        );
+
+        $orders = $session->orders()
+            ->where('status', DeliveryOrder::STATUS_COMPLETED)
+            ->orderBy('completed_at')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($orders as $order) {
+            $this->syncOrderCommissions($order, (float) $user->percentage);
+        }
+
+        $entries = $orders
+            ->map(fn (DeliveryOrder $order) => $this->formatSessionOrderRow($order->fresh()))
+            ->values()
+            ->all();
+
+        return Inertia::render('Reparto/SessionEdit', [
+            'session' => $sessionData,
+            'entries' => $entries,
+            'companyName' => $user->company_name ?? 'Clikio',
+            'userPercentage' => (float) $user->percentage,
+            'backUrl' => route('reparto.index'),
+        ]);
+    }
 }
