@@ -10,6 +10,7 @@ use App\Http\Controllers\Reparto\CashSessionController;
 use App\Http\Controllers\Reparto\DeliveryOrderController;
 use App\Http\Controllers\Reparto\ManualCaptureController;
 use App\Http\Controllers\Reparto\ManualCaptureSessionController;
+use App\Http\Controllers\Reparto\PersonalServiceSessionController;
 use App\Http\Controllers\Reparto\RepartoController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SettingsController;
@@ -130,6 +131,17 @@ Route::middleware('auth')->group(function () {
             Route::put('/pedidos/{order}/actualizar', [DeliveryOrderController::class, 'updateCompleted'])->name('orders.update-completed');
             Route::post('/pedidos/{order}/finalizar', [DeliveryOrderController::class, 'complete'])->name('orders.complete');
             Route::post('/pedidos/{order}/cancelar', [DeliveryOrderController::class, 'cancel'])->name('orders.cancel');
+        });
+
+        Route::middleware('section:'.UserSection::PERSONAL_SERVICE.',view')->group(function () {
+            Route::get('/servicios-propios/{service}', [PersonalServiceSessionController::class, 'show'])->name('personal-services.show');
+        });
+
+        Route::middleware('section:'.UserSection::PERSONAL_SERVICE.',edit')->group(function () {
+            Route::post('/servicios-propios/iniciar', [PersonalServiceSessionController::class, 'start'])->name('personal-services.start');
+            Route::put('/servicios-propios/{service}', [PersonalServiceSessionController::class, 'update'])->name('personal-services.update');
+            Route::post('/servicios-propios/{service}/finalizar', [PersonalServiceSessionController::class, 'complete'])->name('personal-services.complete');
+            Route::post('/servicios-propios/{service}/cancelar', [PersonalServiceSessionController::class, 'cancel'])->name('personal-services.cancel');
         });
     });
 

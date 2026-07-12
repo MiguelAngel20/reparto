@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Reparto;
 
 use App\Models\CashSession;
+use App\Models\DailyExpense;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
+use App\Models\PersonalService;
 use App\Services\CashSessionSummary;
 use App\Services\DailyEarningsHelper;
 use App\Services\DeliveryCommissionCalculator;
@@ -191,6 +193,50 @@ trait RepartoFormatter
             'label' => $name !== '' ? $name : 'Sin nombre',
             'started_at' => $order->started_at?->toIso8601String(),
             'is_current' => $currentOrderId !== null && $order->id === $currentOrderId,
+        ];
+    }
+
+    /**
+     * @return array{id: int, name: string, label: string, started_at: ?string, is_current: bool}
+     */
+    protected function formatActivePersonalServiceSummary(PersonalService $service, ?int $currentServiceId = null): array
+    {
+        $name = trim((string) $service->name);
+
+        return [
+            'id' => $service->id,
+            'name' => $name,
+            'label' => $name !== '' ? $name : 'Sin nombre',
+            'started_at' => $service->started_at?->toIso8601String(),
+            'is_current' => $currentServiceId !== null && $service->id === $currentServiceId,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function formatSessionPersonalServiceRow(PersonalService $service): array
+    {
+        return [
+            'id' => $service->id,
+            'name' => $service->name,
+            'amount' => (float) $service->amount,
+            'spent_amount' => $service->spent_amount !== null ? (float) $service->spent_amount : null,
+            'client_charge' => $service->clientCharge(),
+            'description' => $service->description,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function formatSessionExpenseRow(DailyExpense $expense): array
+    {
+        return [
+            'id' => $expense->id,
+            'name' => $expense->name,
+            'amount' => (float) $expense->amount,
+            'concept' => $expense->concept,
         ];
     }
 

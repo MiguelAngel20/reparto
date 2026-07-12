@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Reparto;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reparto\StoreManualCaptureEntryRequest;
 use App\Models\CashSession;
+use App\Models\DailyExpense;
 use App\Models\DeliveryOrder;
+use App\Models\PersonalService;
 use App\Services\CashSessionSummary;
 use App\Services\CompanyBalanceService;
 use App\Services\DailyEarningsHelper;
@@ -46,8 +48,12 @@ class RepartoController extends Controller
             ->get()
             ->map(fn ($s) => $this->formatSessionWithSummary($s, $user->id));
 
+        $today = now()->toDateString();
+
         $openSessionData = null;
         $sessionOrders = [];
+        $sessionPersonalServices = [];
+        $sessionExpenses = [];
 
         if ($openSession) {
             $openSession->loadCount([
@@ -67,9 +73,27 @@ class RepartoController extends Controller
                 ->map(fn ($order) => $this->formatSessionOrderRow($order))
                 ->values()
                 ->all();
+
+            $sessionPersonalServices = PersonalService::query()
+                ->where('user_id', $user->id)
+                ->whereDate('service_date', $today)
+                ->completed()
+                ->latest()
+                ->get()
+                ->map(fn (PersonalService $service) => $this->formatSessionPersonalServiceRow($service))
+                ->values()
+                ->all();
+
+            $sessionExpenses = DailyExpense::query()
+                ->where('user_id', $user->id)
+                ->whereDate('expense_date', $today)
+                ->latest()
+                ->get()
+                ->map(fn (DailyExpense $expense) => $this->formatSessionExpenseRow($expense))
+                ->values()
+                ->all();
         }
 
-        $today = now()->toDateString();
         $daySummary = DailyEarningsHelper::daySummaryForUser($user->id, $today);
 
         $activeOrders = DeliveryOrder::activeOrdersForUser($user->id)
@@ -77,10 +101,18 @@ class RepartoController extends Controller
             ->values()
             ->all();
 
+        $activePersonalServices = PersonalService::activeServicesForUser($user->id)
+            ->map(fn ($service) => $this->formatActivePersonalServiceSummary($service))
+            ->values()
+            ->all();
+
         return Inertia::render('Reparto/Index', [
             'openSession' => $openSessionData,
             'sessionOrders' => $sessionOrders,
+            'sessionPersonalServices' => $sessionPersonalServices,
+            'sessionExpenses' => $sessionExpenses,
             'activeOrders' => $activeOrders,
+            'activePersonalServices' => $activePersonalServices,
             'recentSessions' => $recentSessions,
             'canStartJornadaToday' => ! CashSession::dayRegisteredForUser($user->id, $today),
             'todayDateFormatted' => now()->format('d/m/Y'),

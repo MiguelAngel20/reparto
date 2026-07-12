@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { calculatePurchaseCharge } from '@/lib/delivery-commission';
 import { formatCurrency, cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
@@ -22,10 +23,30 @@ import {
     ActiveOrdersBar,
     type ActiveOrderSummary,
 } from '@/components/reparto/active-orders-bar';
+import {
+    ActivePersonalServicesBar,
+    type ActivePersonalServiceSummary,
+} from '@/components/reparto/active-personal-services-bar';
 import { Briefcase, Package, Pencil, Play, Receipt, Scale, Trash2, TrendingDown } from 'lucide-react';
 import { confirmCloseCashSession, confirmAction } from '@/lib/sweetalert';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+type SessionPersonalServiceRow = {
+    id: number;
+    name: string;
+    amount: number;
+    spent_amount: number | null;
+    client_charge: number;
+    description: string | null;
+};
+
+type SessionExpenseRow = {
+    id: number;
+    name: string;
+    amount: number;
+    concept: string | null;
+};
 
 type SessionOrderRow = {
     id: number;
@@ -63,7 +84,10 @@ type CashSessionData = SessionHistoryItem & {
 interface RepartoIndexProps {
     openSession: CashSessionData | null;
     sessionOrders: SessionOrderRow[];
+    sessionPersonalServices: SessionPersonalServiceRow[];
+    sessionExpenses: SessionExpenseRow[];
     activeOrders: ActiveOrderSummary[];
+    activePersonalServices: ActivePersonalServiceSummary[];
     recentSessions: CashSessionData[];
     canStartJornadaToday: boolean;
     todayDateFormatted: string;
@@ -86,7 +110,10 @@ const cardClass =
 export default function RepartoIndex({
     openSession,
     sessionOrders,
+    sessionPersonalServices,
+    sessionExpenses,
     activeOrders,
+    activePersonalServices,
     recentSessions,
     canStartJornadaToday,
     todayDateFormatted,
@@ -98,24 +125,36 @@ export default function RepartoIndex({
     netEarningsToday,
 }: RepartoIndexProps) {
     const { canEdit } = useSectionAccess('reparto');
-    const { canEdit: canEditGasto } = useSectionAccess('gasto');
-    const { canEdit: canEditPersonalService } = useSectionAccess('personal_service');
+    const { canEdit: canEditGasto, canView: canViewGasto } = useSectionAccess('gasto');
+    const {
+        canEdit: canEditPersonalService,
+        canView: canViewPersonalService,
+    } = useSectionAccess('personal_service');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const openForm = useForm({});
     const closeForm = useForm({});
     const startOrderForm = useForm({});
+    const startPersonalServiceForm = useForm({});
     const expenseForm = useForm({
         name: '',
         amount: '',
         concept: '',
     });
     const [expenseModalOpen, setExpenseModalOpen] = useState(false);
-    const [personalServiceModalOpen, setPersonalServiceModalOpen] = useState(false);
-    const personalServiceForm = useForm({
+    const [editingPersonalService, setEditingPersonalService] =
+        useState<SessionPersonalServiceRow | null>(null);
+    const [editingExpense, setEditingExpense] = useState<SessionExpenseRow | null>(null);
+    const editPersonalServiceForm = useForm({
         name: '',
         amount: '',
+        spent_amount: '',
         description: '',
+    });
+    const editExpenseForm = useForm({
+        name: '',
+        amount: '',
+        concept: '',
     });
 
     const sessionSummary = useMemo(() => {
@@ -155,6 +194,27 @@ export default function RepartoIndex({
         );
     }, [sessionOrders]);
 
+    const personalServicesTableTotal = useMemo(() => {
+        return sessionPersonalServices.reduce(
+            (acc, row) => ({
+                amount: acc.amount + row.amount,
+                spent_amount: acc.spent_amount + (row.spent_amount ?? 0),
+                client_charge: acc.client_charge + row.client_charge,
+            }),
+            { amount: 0, spent_amount: 0, client_charge: 0 },
+        );
+    }, [sessionPersonalServices]);
+
+    const expensesTableTotal = useMemo(() => {
+        return sessionExpenses.reduce((acc, row) => acc + row.amount, 0);
+    }, [sessionExpenses]);
+
+    const editingServiceClientCharge = useMemo(() => {
+        const amount = parseFloat(editPersonalServiceForm.data.amount) || 0;
+        const spent = parseFloat(editPersonalServiceForm.data.spent_amount) || 0;
+        return calculatePurchaseCharge(spent, amount);
+    }, [editPersonalServiceForm.data.amount, editPersonalServiceForm.data.spent_amount]);
+
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
         if (flash?.error) toast.error(flash.error);
@@ -170,7 +230,10 @@ export default function RepartoIndex({
                 only: [
                     'openSession',
                     'sessionOrders',
+                    'sessionPersonalServices',
+                    'sessionExpenses',
                     'activeOrders',
+                    'activePersonalServices',
                     'totalExpensesToday',
                     'totalPersonalServicesToday',
                     'netEarningsToday',
@@ -193,6 +256,10 @@ export default function RepartoIndex({
         startOrderForm.post('/reparto/pedidos/iniciar');
     };
 
+    const startPersonalService = () => {
+        startPersonalServiceForm.post('/reparto/servicios-propios/iniciar');
+    };
+
     const submitCloseCaja = async () => {
         if (!openSession) return;
 
@@ -213,15 +280,84 @@ export default function RepartoIndex({
         });
     };
 
-    const submitPersonalService = (e: React.FormEvent) => {
-        e.preventDefault();
-        personalServiceForm.post('/mis-servicios', {
-            preserveScroll: true,
-            onSuccess: () => {
-                personalServiceForm.reset();
-                setPersonalServiceModalOpen(false);
-            },
+    const openEditPersonalService = (service: SessionPersonalServiceRow) => {
+        setEditingPersonalService(service);
+        editPersonalServiceForm.setData({
+            name: service.name,
+            amount: String(service.amount),
+            spent_amount:
+                service.spent_amount !== null ? String(service.spent_amount) : '',
+            description: service.description ?? '',
         });
+        editPersonalServiceForm.clearErrors();
+    };
+
+    const closeEditPersonalService = () => {
+        setEditingPersonalService(null);
+        editPersonalServiceForm.reset();
+        editPersonalServiceForm.clearErrors();
+    };
+
+    const submitEditPersonalService = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingPersonalService) return;
+
+        editPersonalServiceForm.put(`/mis-servicios/${editingPersonalService.id}`, {
+            preserveScroll: true,
+            onSuccess: () => closeEditPersonalService(),
+        });
+    };
+
+    const deletePersonalService = async (service: SessionPersonalServiceRow) => {
+        const confirmed = await confirmAction({
+            title: '¿Eliminar servicio?',
+            text: `${service.name} — se recalcularán tus ganancias del día.`,
+            confirmText: 'Sí, eliminar',
+            icon: 'warning',
+        });
+
+        if (!confirmed) return;
+
+        router.delete(`/mis-servicios/${service.id}`, { preserveScroll: true });
+    };
+
+    const openEditExpense = (expense: SessionExpenseRow) => {
+        setEditingExpense(expense);
+        editExpenseForm.setData({
+            name: expense.name,
+            amount: String(expense.amount),
+            concept: expense.concept ?? '',
+        });
+        editExpenseForm.clearErrors();
+    };
+
+    const closeEditExpense = () => {
+        setEditingExpense(null);
+        editExpenseForm.reset();
+        editExpenseForm.clearErrors();
+    };
+
+    const submitEditExpense = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingExpense) return;
+
+        editExpenseForm.put(`/gasto/${editingExpense.id}`, {
+            preserveScroll: true,
+            onSuccess: () => closeEditExpense(),
+        });
+    };
+
+    const deleteExpense = async (expense: SessionExpenseRow) => {
+        const confirmed = await confirmAction({
+            title: '¿Eliminar gasto?',
+            text: `${expense.name} — $${formatCurrency(expense.amount)}`,
+            confirmText: 'Sí, eliminar',
+            icon: 'warning',
+        });
+
+        if (!confirmed) return;
+
+        router.delete(`/gasto/${expense.id}`, { preserveScroll: true });
     };
 
     const deleteSessionOrder = async (orderId: number, orderName: string) => {
@@ -701,145 +837,29 @@ export default function RepartoIndex({
                             )}
 
                             {canEditPersonalService && (
-                            <>
                             <button
                                 type="button"
-                                onClick={() => setPersonalServiceModalOpen(true)}
-                                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold text-violet-700 hover:bg-violet-100 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-400 dark:hover:bg-violet-950/50"
+                                onClick={startPersonalService}
+                                disabled={startPersonalServiceForm.processing}
+                                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-400 dark:hover:bg-violet-950/50"
                             >
                                 <Briefcase className="h-4 w-4 shrink-0" />
-                                Agregar servicio propio
+                                {startPersonalServiceForm.processing
+                                    ? 'Abriendo...'
+                                    : 'Agregar servicio propio'}
                             </button>
-
-                            <Dialog
-                                open={personalServiceModalOpen}
-                                onOpenChange={(open) => {
-                                    setPersonalServiceModalOpen(open);
-                                    if (!open) {
-                                        personalServiceForm.reset();
-                                        personalServiceForm.clearErrors();
-                                    }
-                                }}
-                            >
-                                <DialogContent className="sm:max-w-md">
-                                    <DialogHeader>
-                                        <DialogTitle>Agregar servicio propio</DialogTitle>
-                                        <DialogDescription>
-                                            Servicio fuera de la empresa. El monto completo suma a
-                                            tus ganancias del día.
-                                        </DialogDescription>
-                                    </DialogHeader>
-
-                                    <form
-                                        onSubmit={submitPersonalService}
-                                        noValidate
-                                        className="space-y-4"
-                                    >
-                                        <div>
-                                            <Label
-                                                htmlFor="jornada_service_name"
-                                                className="mb-1 block text-xs text-slate-500"
-                                            >
-                                                Nombre del pedido
-                                            </Label>
-                                            <Input
-                                                id="jornada_service_name"
-                                                value={personalServiceForm.data.name}
-                                                onChange={(e) =>
-                                                    personalServiceForm.setData('name', e.target.value)
-                                                }
-                                                placeholder="Ej. Reparto express"
-                                                className={cn(
-                                                    personalServiceForm.errors.name &&
-                                                        'border-rose-500',
-                                                )}
-                                            />
-                                            {personalServiceForm.errors.name && (
-                                                <p className="mt-1 text-xs text-rose-600">
-                                                    {personalServiceForm.errors.name}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <Label
-                                                htmlFor="jornada_service_amount"
-                                                className="mb-1 block text-xs text-slate-500"
-                                            >
-                                                Monto ($)
-                                            </Label>
-                                            <Input
-                                                id="jornada_service_amount"
-                                                type="number"
-                                                min={0.01}
-                                                step="0.01"
-                                                value={personalServiceForm.data.amount}
-                                                onChange={(e) =>
-                                                    personalServiceForm.setData(
-                                                        'amount',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                placeholder="0.00"
-                                                className={cn(
-                                                    personalServiceForm.errors.amount &&
-                                                        'border-rose-500',
-                                                )}
-                                            />
-                                            {personalServiceForm.errors.amount && (
-                                                <p className="mt-1 text-xs text-rose-600">
-                                                    {personalServiceForm.errors.amount}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <Label
-                                                htmlFor="jornada_service_description"
-                                                className="mb-1 block text-xs text-slate-500"
-                                            >
-                                                Descripción (opcional)
-                                            </Label>
-                                            <Input
-                                                id="jornada_service_description"
-                                                value={personalServiceForm.data.description}
-                                                onChange={(e) =>
-                                                    personalServiceForm.setData(
-                                                        'description',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                placeholder="Detalle del servicio"
-                                            />
-                                        </div>
-
-                                        <DialogFooter className="gap-2 sm:gap-0">
-                                            <button
-                                                type="button"
-                                                onClick={() => setPersonalServiceModalOpen(false)}
-                                                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
-                                            >
-                                                Cancelar
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={personalServiceForm.processing}
-                                                className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
-                                            >
-                                                {personalServiceForm.processing
-                                                    ? 'Guardando...'
-                                                    : 'Guardar servicio'}
-                                            </button>
-                                        </DialogFooter>
-                                    </form>
-                                </DialogContent>
-                            </Dialog>
-                            </>
                             )}
                         </Card>
 
                         {activeOrders.length > 0 && (
                             <ActiveOrdersBar orders={activeOrders} showNewOrderButton={canEdit} />
+                        )}
+
+                        {activePersonalServices.length > 0 && (
+                            <ActivePersonalServicesBar
+                                services={activePersonalServices}
+                                showNewServiceButton={canEditPersonalService}
+                            />
                         )}
 
                         <Card className={`${cardClass} p-4 sm:p-5`}>
@@ -987,6 +1007,438 @@ export default function RepartoIndex({
                                 </div>
                             )}
                         </Card>
+
+                        {canViewPersonalService && (
+                        <Card className={`${cardClass} p-4 sm:p-5`}>
+                            <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
+                                Servicios propios del día
+                            </h3>
+
+                            {sessionPersonalServices.length === 0 ? (
+                                <p className="text-sm text-slate-500">
+                                    Sin servicios propios registrados.
+                                </p>
+                            ) : (
+                                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#3a3a3a]">
+                                    <table className="w-full min-w-[640px] text-left text-sm">
+                                        <thead>
+                                            <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]">
+                                                <th className="px-4 py-3">Nombre</th>
+                                                <th className="px-4 py-3 text-right">Servicio</th>
+                                                <th className="px-4 py-3 text-right">Gastado</th>
+                                                <th className="px-4 py-3 text-right">
+                                                    Cobrar al cliente
+                                                </th>
+                                                {canEditPersonalService && (
+                                                    <th className="px-4 py-3 text-center">Acciones</th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-[#333]">
+                                            {sessionPersonalServices.map((row, index) => (
+                                                <tr
+                                                    key={row.id}
+                                                    className="text-slate-700 dark:text-slate-300"
+                                                >
+                                                    <td className="px-4 py-3">
+                                                        <span className="mr-2 text-xs text-slate-400">
+                                                            {index + 1}.
+                                                        </span>
+                                                        {row.name}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-medium text-violet-600">
+                                                        +${formatCurrency(row.amount)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        {row.spent_amount !== null &&
+                                                        row.spent_amount > 0
+                                                            ? `$${formatCurrency(row.spent_amount)}`
+                                                            : '—'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-medium text-slate-800 dark:text-slate-100">
+                                                        ${formatCurrency(row.client_charge)}
+                                                    </td>
+                                                    {canEditPersonalService && (
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex justify-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    openEditPersonalService(row)
+                                                                }
+                                                                className="rounded p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
+                                                                title="Editar servicio"
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    deletePersonalService(row)
+                                                                }
+                                                                className="rounded p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                                                title="Eliminar servicio"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-900 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-white">
+                                                <td className="px-4 py-3">Total</td>
+                                                <td className="px-4 py-3 text-right text-violet-600">
+                                                    +$
+                                                    {formatCurrency(personalServicesTableTotal.amount)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    {personalServicesTableTotal.spent_amount > 0
+                                                        ? `$${formatCurrency(personalServicesTableTotal.spent_amount)}`
+                                                        : '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    $
+                                                    {formatCurrency(
+                                                        personalServicesTableTotal.client_charge,
+                                                    )}
+                                                </td>
+                                                {canEditPersonalService && <td />}
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            )}
+                        </Card>
+                        )}
+
+                        {canViewGasto && (
+                        <Card className={`${cardClass} p-4 sm:p-5`}>
+                            <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
+                                Gastos del día
+                            </h3>
+
+                            {sessionExpenses.length === 0 ? (
+                                <p className="text-sm text-slate-500">Sin gastos registrados.</p>
+                            ) : (
+                                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#3a3a3a]">
+                                    <table className="w-full min-w-[520px] text-left text-sm">
+                                        <thead>
+                                            <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]">
+                                                <th className="px-4 py-3">Nombre</th>
+                                                <th className="px-4 py-3 text-right">Cantidad</th>
+                                                <th className="px-4 py-3">Concepto</th>
+                                                {canEditGasto && (
+                                                    <th className="px-4 py-3 text-center">Acciones</th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 dark:divide-[#333]">
+                                            {sessionExpenses.map((row, index) => (
+                                                <tr
+                                                    key={row.id}
+                                                    className="text-slate-700 dark:text-slate-300"
+                                                >
+                                                    <td className="px-4 py-3">
+                                                        <span className="mr-2 text-xs text-slate-400">
+                                                            {index + 1}.
+                                                        </span>
+                                                        {row.name}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-medium text-rose-600">
+                                                        −${formatCurrency(row.amount)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-slate-500">
+                                                        {row.concept || '—'}
+                                                    </td>
+                                                    {canEditGasto && (
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex justify-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openEditExpense(row)}
+                                                                className="rounded p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
+                                                                title="Editar gasto"
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => deleteExpense(row)}
+                                                                className="rounded p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                                                title="Eliminar gasto"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-900 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-white">
+                                                <td className="px-4 py-3">Total</td>
+                                                <td className="px-4 py-3 text-right text-rose-600">
+                                                    −${formatCurrency(expensesTableTotal)}
+                                                </td>
+                                                <td />
+                                                {canEditGasto && <td />}
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            )}
+                        </Card>
+                        )}
+
+                        <Dialog
+                            open={editingPersonalService !== null}
+                            onOpenChange={(open) => {
+                                if (!open) closeEditPersonalService();
+                            }}
+                        >
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle>Editar servicio propio</DialogTitle>
+                                    <DialogDescription>
+                                        Al guardar, se recalculan tus ganancias del día.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <form
+                                    onSubmit={submitEditPersonalService}
+                                    noValidate
+                                    className="space-y-4"
+                                >
+                                    <div>
+                                        <Label
+                                            htmlFor="edit_jornada_service_name"
+                                            className="mb-1 block text-xs text-slate-500"
+                                        >
+                                            Nombre del pedido
+                                        </Label>
+                                        <Input
+                                            id="edit_jornada_service_name"
+                                            value={editPersonalServiceForm.data.name}
+                                            onChange={(e) =>
+                                                editPersonalServiceForm.setData(
+                                                    'name',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            className={cn(
+                                                editPersonalServiceForm.errors.name &&
+                                                    'border-rose-500',
+                                            )}
+                                        />
+                                        {editPersonalServiceForm.errors.name && (
+                                            <p className="mt-1 text-xs text-rose-600">
+                                                {editPersonalServiceForm.errors.name}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <Label
+                                                htmlFor="edit_jornada_service_amount"
+                                                className="mb-1 block text-xs text-slate-500"
+                                            >
+                                                Monto del servicio ($)
+                                            </Label>
+                                            <Input
+                                                id="edit_jornada_service_amount"
+                                                type="number"
+                                                min={0.01}
+                                                step="0.01"
+                                                value={editPersonalServiceForm.data.amount}
+                                                onChange={(e) =>
+                                                    editPersonalServiceForm.setData(
+                                                        'amount',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className={cn(
+                                                    editPersonalServiceForm.errors.amount &&
+                                                        'border-rose-500',
+                                                )}
+                                            />
+                                            {editPersonalServiceForm.errors.amount && (
+                                                <p className="mt-1 text-xs text-rose-600">
+                                                    {editPersonalServiceForm.errors.amount}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <Label
+                                                htmlFor="edit_jornada_service_spent"
+                                                className="mb-1 block text-xs text-slate-500"
+                                            >
+                                                Monto gastado ($){' '}
+                                                <span className="font-normal">opc.</span>
+                                            </Label>
+                                            <Input
+                                                id="edit_jornada_service_spent"
+                                                type="number"
+                                                min={0}
+                                                step="0.01"
+                                                value={editPersonalServiceForm.data.spent_amount}
+                                                onChange={(e) =>
+                                                    editPersonalServiceForm.setData(
+                                                        'spent_amount',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className={cn(
+                                                    editPersonalServiceForm.errors.spent_amount &&
+                                                        'border-rose-500',
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="rounded-lg bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 dark:bg-violet-950/30 dark:text-violet-400">
+                                        Cobrar al cliente: ${formatCurrency(editingServiceClientCharge)}
+                                    </p>
+                                    <div>
+                                        <Label
+                                            htmlFor="edit_jornada_service_description"
+                                            className="mb-1 block text-xs text-slate-500"
+                                        >
+                                            Descripción (opcional)
+                                        </Label>
+                                        <Input
+                                            id="edit_jornada_service_description"
+                                            value={editPersonalServiceForm.data.description}
+                                            onChange={(e) =>
+                                                editPersonalServiceForm.setData(
+                                                    'description',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <DialogFooter className="gap-2 sm:gap-0">
+                                        <button
+                                            type="button"
+                                            onClick={closeEditPersonalService}
+                                            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={editPersonalServiceForm.processing}
+                                            className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                        >
+                                            {editPersonalServiceForm.processing
+                                                ? 'Guardando...'
+                                                : 'Guardar cambios'}
+                                        </button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+
+                        <Dialog
+                            open={editingExpense !== null}
+                            onOpenChange={(open) => {
+                                if (!open) closeEditExpense();
+                            }}
+                        >
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle>Editar gasto</DialogTitle>
+                                    <DialogDescription>
+                                        Al guardar, se recalculan los gastos del día y tu saldo.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <form onSubmit={submitEditExpense} noValidate className="space-y-4">
+                                    <div>
+                                        <Label
+                                            htmlFor="edit_jornada_expense_name"
+                                            className="mb-1 block text-xs text-slate-500"
+                                        >
+                                            Nombre del gasto
+                                        </Label>
+                                        <Input
+                                            id="edit_jornada_expense_name"
+                                            value={editExpenseForm.data.name}
+                                            onChange={(e) =>
+                                                editExpenseForm.setData('name', e.target.value)
+                                            }
+                                            className={cn(
+                                                editExpenseForm.errors.name && 'border-rose-500',
+                                            )}
+                                        />
+                                        {editExpenseForm.errors.name && (
+                                            <p className="mt-1 text-xs text-rose-600">
+                                                {editExpenseForm.errors.name}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <Label
+                                            htmlFor="edit_jornada_expense_amount"
+                                            className="mb-1 block text-xs text-slate-500"
+                                        >
+                                            Cantidad ($)
+                                        </Label>
+                                        <Input
+                                            id="edit_jornada_expense_amount"
+                                            type="number"
+                                            min={0.01}
+                                            step="0.01"
+                                            value={editExpenseForm.data.amount}
+                                            onChange={(e) =>
+                                                editExpenseForm.setData('amount', e.target.value)
+                                            }
+                                            className={cn(
+                                                editExpenseForm.errors.amount && 'border-rose-500',
+                                            )}
+                                        />
+                                        {editExpenseForm.errors.amount && (
+                                            <p className="mt-1 text-xs text-rose-600">
+                                                {editExpenseForm.errors.amount}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <Label
+                                            htmlFor="edit_jornada_expense_concept"
+                                            className="mb-1 block text-xs text-slate-500"
+                                        >
+                                            Concepto (opcional)
+                                        </Label>
+                                        <Input
+                                            id="edit_jornada_expense_concept"
+                                            value={editExpenseForm.data.concept}
+                                            onChange={(e) =>
+                                                editExpenseForm.setData('concept', e.target.value)
+                                            }
+                                        />
+                                    </div>
+                                    <DialogFooter className="gap-2 sm:gap-0">
+                                        <button
+                                            type="button"
+                                            onClick={closeEditExpense}
+                                            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={editExpenseForm.processing}
+                                            className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                        >
+                                            {editExpenseForm.processing
+                                                ? 'Guardando...'
+                                                : 'Guardar cambios'}
+                                        </button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
                     </>
                 ) : null}
 

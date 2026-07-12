@@ -22,6 +22,7 @@ class PersonalServiceController extends Controller
         $services = PersonalService::query()
             ->where('user_id', $user->id)
             ->whereDate('service_date', $today)
+            ->completed()
             ->latest()
             ->get()
             ->map(fn (PersonalService $service) => $this->formatService($service));
@@ -45,6 +46,7 @@ class PersonalServiceController extends Controller
         PersonalService::query()->create([
             'user_id' => $request->user()->id,
             'service_date' => now()->toDateString(),
+            'status' => PersonalService::STATUS_COMPLETED,
             'name' => trim($request->validated('name')),
             'amount' => round((float) $request->validated('amount'), 2),
             'description' => $request->validated('description'),
@@ -57,9 +59,12 @@ class PersonalServiceController extends Controller
     {
         abort_unless($service->user_id === $request->user()->id, 403);
 
+        $spent = $request->validated('spent_amount');
+
         $service->update([
             'name' => trim($request->validated('name')),
             'amount' => round((float) $request->validated('amount'), 2),
+            'spent_amount' => $spent !== null ? round((float) $spent, 2) : null,
             'description' => $request->validated('description'),
         ]);
 

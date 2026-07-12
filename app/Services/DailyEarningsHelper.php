@@ -24,6 +24,7 @@ class DailyEarningsHelper
         return round((float) PersonalService::query()
             ->where('user_id', $userId)
             ->whereDate('service_date', $date)
+            ->completed()
             ->sum('amount'), 2);
     }
 
@@ -102,6 +103,7 @@ class DailyEarningsHelper
     {
         return PersonalService::query()
             ->where('user_id', $userId)
+            ->completed()
             ->get()
             ->groupBy(fn (PersonalService $service) => $service->service_date->format('Y-m-d'))
             ->map(fn ($rows) => round((float) $rows->sum('amount'), 2))
@@ -114,6 +116,7 @@ class DailyEarningsHelper
             ->where('user_id', $userId)
             ->whereDate('service_date', '>=', $start)
             ->whereDate('service_date', '<=', $end)
+            ->completed()
             ->sum('amount'), 2);
     }
 }

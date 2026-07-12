@@ -65,6 +65,16 @@ export async function confirmCancelOrder(): Promise<boolean> {
     });
 }
 
+export async function confirmCancelPersonalService(): Promise<boolean> {
+    return confirmAction({
+        title: '¿Cancelar servicio?',
+        text: 'Se descartará este servicio propio. No se guardará en tus ganancias del día.',
+        icon: 'warning',
+        confirmText: 'Sí, cancelar',
+        cancelText: 'Seguir editando',
+    });
+}
+
 export async function confirmCloseCashSession(): Promise<boolean> {
     return confirmAction({
         title: '¿Finalizar jornada?',
