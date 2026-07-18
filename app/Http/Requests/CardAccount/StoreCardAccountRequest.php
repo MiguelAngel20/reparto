@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\CardAccount;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCardAccountRequest extends FormRequest
 {
@@ -15,6 +17,11 @@ class StoreCardAccountRequest extends FormRequest
     {
         return [
             'holder_name' => ['required', 'string', 'max:120'],
+            'assigned_user_id' => [
+                'required',
+                'integer',
+                Rule::exists('users', 'id')->where('role', User::ROLE_REPARTIDOR),
+            ],
             'account_holder_name' => ['nullable', 'string', 'max:120'],
             'bank_type' => ['nullable', 'string', 'max:80'],
             'account_number' => ['nullable', 'string', 'max:40'],
@@ -26,6 +33,8 @@ class StoreCardAccountRequest extends FormRequest
     {
         return [
             'holder_name.required' => 'Indica quién usa la tarjeta.',
+            'assigned_user_id.required' => 'Selecciona el usuario asignado a esta tarjeta.',
+            'assigned_user_id.exists' => 'El usuario seleccionado no es válido.',
         ];
     }
 }

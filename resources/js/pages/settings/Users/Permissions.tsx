@@ -17,7 +17,7 @@ type PermissionRow = {
     can_update?: boolean;
     can_delete?: boolean;
     can_payment?: boolean;
-    can_liquidate?: boolean;
+    can_real_deposit?: boolean;
     action_labels?: Record<string, string>;
 };
 
@@ -30,10 +30,18 @@ type UserInfo = {
     role_label: string;
 };
 
+type CardAccountOption = {
+    id: number;
+    label: string;
+    status: 'open' | 'closed';
+};
+
 interface PermissionsPageProps {
     user: UserInfo;
     permissions: PermissionsMatrix;
     isAdminUser: boolean;
+    cardAccounts: CardAccountOption[];
+    assignedCardAccountIds: number[];
 }
 
 type FormPermissionRow = {
@@ -43,7 +51,7 @@ type FormPermissionRow = {
     can_update?: boolean;
     can_delete?: boolean;
     can_payment?: boolean;
-    can_liquidate?: boolean;
+    can_real_deposit?: boolean;
 };
 
 const GRANULAR_ACTIONS = [
@@ -51,13 +59,15 @@ const GRANULAR_ACTIONS = [
     'update',
     'delete',
     'payment',
-    'liquidate',
+    'real_deposit',
 ] as const;
 
 export default function UserPermissions({
     user,
     permissions,
     isAdminUser,
+    cardAccounts,
+    assignedCardAccountIds,
 }: PermissionsPageProps) {
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
@@ -74,7 +84,7 @@ export default function UserPermissions({
                             can_update: row.can_update ?? false,
                             can_delete: row.can_delete ?? false,
                             can_payment: row.can_payment ?? false,
-                            can_liquidate: row.can_liquidate ?? false,
+                            can_real_deposit: row.can_real_deposit ?? false,
                         },
                     ];
                 }
@@ -82,6 +92,7 @@ export default function UserPermissions({
                 return [section, { can_view: row.can_view, can_edit: row.can_edit ?? false }];
             }),
         ) as Record<string, FormPermissionRow>,
+        assigned_card_account_ids: assignedCardAccountIds,
     });
 
     useEffect(() => {
@@ -112,7 +123,7 @@ export default function UserPermissions({
                               can_update: false,
                               can_delete: false,
                               can_payment: false,
-                              can_liquidate: false,
+                              can_real_deposit: false,
                           }),
                 },
             });
@@ -153,6 +164,15 @@ export default function UserPermissions({
                 can_view: next ? true : current.can_view,
             },
         });
+    };
+
+    const toggleCardAssignment = (cardAccountId: number) => {
+        const current = form.data.assigned_card_account_ids;
+        const next = current.includes(cardAccountId)
+            ? current.filter((id) => id !== cardAccountId)
+            : [...current, cardAccountId];
+
+        form.setData('assigned_card_account_ids', next);
     };
 
     const submit = (e: React.FormEvent) => {
@@ -204,70 +224,116 @@ export default function UserPermissions({
 
                                 if (row.mode === 'granular') {
                                     return (
-                                        <div
-                                            key={section}
-                                            className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#3a3a3a]"
-                                        >
-                                            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]">
-                                                <p className="font-semibold text-slate-900 dark:text-white">
-                                                    {row.label}
-                                                </p>
-                                                <p className="text-xs text-slate-500">
-                                                    Permisos detallados por acción
-                                                </p>
-                                            </div>
-                                            <table className="w-full min-w-[520px] text-sm">
-                                                <thead>
-                                                    <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a]">
-                                                        <th className="px-4 py-2 text-left font-semibold">
-                                                            Ver
-                                                        </th>
-                                                        {GRANULAR_ACTIONS.map((action) => (
-                                                            <th
-                                                                key={action}
-                                                                className="px-4 py-2 text-center font-semibold"
-                                                            >
-                                                                {row.action_labels?.[action] ?? action}
+                                        <div key={section} className="space-y-3">
+                                            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#3a3a3a]">
+                                                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]">
+                                                    <p className="font-semibold text-slate-900 dark:text-white">
+                                                        {row.label}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500">
+                                                        Permisos detallados por acción
+                                                    </p>
+                                                </div>
+                                                <table className="w-full min-w-[520px] text-sm">
+                                                    <thead>
+                                                        <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a]">
+                                                            <th className="px-4 py-2 text-left font-semibold">
+                                                                Ver
                                                             </th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr>
-                                                        <td className="px-4 py-3">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={values.can_view}
-                                                                onChange={() => toggleView(section)}
-                                                                className="h-4 w-4 rounded border-slate-300 text-sidebar-active focus:ring-sidebar-active"
-                                                            />
-                                                        </td>
-                                                        {GRANULAR_ACTIONS.map((action) => {
-                                                            const key =
-                                                                `can_${action}` as keyof FormPermissionRow;
-
-                                                            return (
-                                                                <td
+                                                            {GRANULAR_ACTIONS.map((action) => (
+                                                                <th
                                                                     key={action}
-                                                                    className="px-4 py-3 text-center"
+                                                                    className="px-4 py-2 text-center font-semibold"
                                                                 >
+                                                                    {row.action_labels?.[action] ?? action}
+                                                                </th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td className="px-4 py-3">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={values.can_view}
+                                                                    onChange={() => toggleView(section)}
+                                                                    className="h-4 w-4 rounded border-slate-300 text-sidebar-active focus:ring-sidebar-active"
+                                                                />
+                                                            </td>
+                                                            {GRANULAR_ACTIONS.map((action) => {
+                                                                const key =
+                                                                    `can_${action}` as keyof FormPermissionRow;
+
+                                                                return (
+                                                                    <td
+                                                                        key={action}
+                                                                        className="px-4 py-3 text-center"
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={Boolean(values[key])}
+                                                                            onChange={() =>
+                                                                                toggleGranular(
+                                                                                    section,
+                                                                                    action,
+                                                                                )
+                                                                            }
+                                                                            className="h-4 w-4 rounded border-slate-300 text-sidebar-active focus:ring-sidebar-active"
+                                                                        />
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {section === 'card_account' && (
+                                                <div className="rounded-xl border border-slate-200 px-4 py-4 dark:border-[#3a3a3a]">
+                                                    <p className="font-medium text-slate-900 dark:text-white">
+                                                        Tarjetas asignadas
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-slate-500">
+                                                        El usuario solo verá las tarjetas marcadas. Los
+                                                        permisos de arriba definen qué acciones puede
+                                                        hacer en ellas.
+                                                    </p>
+
+                                                    {cardAccounts.length === 0 ? (
+                                                        <p className="mt-3 text-sm text-slate-500">
+                                                            Aún no hay tarjetas registradas.
+                                                        </p>
+                                                    ) : (
+                                                        <div className="mt-3 space-y-2">
+                                                            {cardAccounts.map((card) => (
+                                                                <label
+                                                                    key={card.id}
+                                                                    className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 dark:border-[#3a3a3a]"
+                                                                >
+                                                                    <span className="text-sm text-slate-700 dark:text-slate-200">
+                                                                        {card.label}
+                                                                        {card.status === 'closed' && (
+                                                                            <span className="ml-2 text-xs text-slate-400">
+                                                                                (cerrada)
+                                                                            </span>
+                                                                        )}
+                                                                    </span>
                                                                     <input
                                                                         type="checkbox"
-                                                                        checked={Boolean(values[key])}
+                                                                        checked={form.data.assigned_card_account_ids.includes(
+                                                                            card.id,
+                                                                        )}
                                                                         onChange={() =>
-                                                                            toggleGranular(
-                                                                                section,
-                                                                                action,
-                                                                            )
+                                                                            toggleCardAssignment(card.id)
                                                                         }
                                                                         className="h-4 w-4 rounded border-slate-300 text-sidebar-active focus:ring-sidebar-active"
                                                                     />
-                                                                </td>
-                                                            );
-                                                        })}
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 }

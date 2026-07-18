@@ -80,7 +80,7 @@ Route::middleware('auth')->group(function () {
             ->middleware('section:'.UserSection::CARD_ACCOUNT.',payment')
             ->name('payments.store');
         Route::post('/{account}/deposito-real', [CardAccountController::class, 'storeRealDeposit'])
-            ->middleware('section:'.UserSection::CARD_ACCOUNT.',update')
+            ->middleware('section:'.UserSection::CARD_ACCOUNT.',real_deposit')
             ->name('real-deposits.store');
         Route::put('/{account}', [CardAccountController::class, 'update'])
             ->middleware('section:'.UserSection::CARD_ACCOUNT.',update')

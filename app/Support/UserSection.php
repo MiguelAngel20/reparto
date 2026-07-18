@@ -69,7 +69,7 @@ class UserSection
             return [];
         }
 
-        return ['create', 'update', 'delete', 'payment', 'liquidate'];
+        return ['create', 'update', 'delete', 'payment', 'real_deposit'];
     }
 
     /**
@@ -86,7 +86,7 @@ class UserSection
             'update' => 'Editar',
             'delete' => 'Eliminar',
             'payment' => 'Abonar',
-            'liquidate' => 'Liquidar',
+            'real_deposit' => 'Dinero real',
         ];
     }
 }

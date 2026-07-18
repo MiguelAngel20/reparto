@@ -16,7 +16,7 @@ class UserSectionPermission extends Model
         'can_update',
         'can_delete',
         'can_payment',
-        'can_liquidate',
+        'can_real_deposit',
     ];
 
     protected function casts(): array
@@ -28,7 +28,7 @@ class UserSectionPermission extends Model
             'can_update' => 'boolean',
             'can_delete' => 'boolean',
             'can_payment' => 'boolean',
-            'can_liquidate' => 'boolean',
+            'can_real_deposit' => 'boolean',
         ];
     }
 

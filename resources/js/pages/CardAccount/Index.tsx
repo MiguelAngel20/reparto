@@ -34,8 +34,14 @@ type CardSummary = {
     opened_at: string | null;
 };
 
+type AssignableUser = {
+    id: number;
+    label: string;
+};
+
 interface CardAccountIndexProps {
     cards: CardSummary[];
+    assignableUsers: AssignableUser[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -205,7 +211,7 @@ function BankCardVisual({
     );
 }
 
-export default function CardAccountIndex({ cards }: CardAccountIndexProps) {
+export default function CardAccountIndex({ cards, assignableUsers }: CardAccountIndexProps) {
     const { canCreate, canUpdate } = useSectionAccess('card_account');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
@@ -215,6 +221,7 @@ export default function CardAccountIndex({ cards }: CardAccountIndexProps) {
 
     const createForm = useForm({
         holder_name: '',
+        assigned_user_id: assignableUsers[0]?.id ? String(assignableUsers[0].id) : '',
         account_holder_name: '',
         bank_type: '',
         account_number: '',
@@ -278,8 +285,41 @@ export default function CardAccountIndex({ cards }: CardAccountIndexProps) {
     const renderAccountFormFields = (
         form: typeof createForm,
         idPrefix: string,
+        options?: { includeAssignedUser?: boolean },
     ) => (
         <>
+            {options?.includeAssignedUser && (
+                <div>
+                    <Label
+                        htmlFor={`${idPrefix}_assigned_user_id`}
+                        className="mb-1 block text-xs text-slate-500"
+                    >
+                        Usuario asignado
+                    </Label>
+                    <select
+                        id={`${idPrefix}_assigned_user_id`}
+                        value={form.data.assigned_user_id}
+                        onChange={(e) => form.setData('assigned_user_id', e.target.value)}
+                        className={cn(
+                            'h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-slate-200',
+                            form.errors.assigned_user_id && 'border-rose-500',
+                        )}
+                    >
+                        <option value="">Selecciona un usuario</option>
+                        {assignableUsers.map((user) => (
+                            <option key={user.id} value={String(user.id)}>
+                                {user.label}
+                            </option>
+                        ))}
+                    </select>
+                    {form.errors.assigned_user_id && (
+                        <p className="mt-1 text-xs text-rose-600">{form.errors.assigned_user_id}</p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500">
+                        Repartidor que usará esta tarjeta. Podrás asignar más usuarios en permisos.
+                    </p>
+                </div>
+            )}
             <div>
                 <Label htmlFor={`${idPrefix}_holder_name`} className="mb-1 block text-xs text-slate-500">
                     Quién usa la tarjeta
@@ -422,7 +462,7 @@ export default function CardAccountIndex({ cards }: CardAccountIndexProps) {
                             </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={submitCreate} noValidate className="space-y-4">
-                            {renderAccountFormFields(createForm, 'create')}
+                            {renderAccountFormFields(createForm, 'create', { includeAssignedUser: true })}
                             <DialogFooter className="gap-2 sm:gap-0">
                                 <button
                                     type="button"

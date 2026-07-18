@@ -11,21 +11,32 @@ use InvalidArgumentException;
 
 class CardAccountService
 {
-    public function createAccount(User $user, array $data): CardAccount
+    public function createAccount(User $creator, array $data): CardAccount
     {
-        return CardAccount::query()->create([
-            'user_id' => $user->id,
-            'holder_name' => trim($data['holder_name']),
-            'account_holder_name' => trim($data['account_holder_name'] ?? $data['holder_name']),
-            'bank_type' => trim($data['bank_type'] ?? '') ?: null,
-            'account_number' => trim($data['account_number'] ?? '') ?: null,
-            'initial_real_balance' => array_key_exists('initial_real_balance', $data)
-                && $data['initial_real_balance'] !== null
-                && $data['initial_real_balance'] !== ''
-                ? round((float) $data['initial_real_balance'], 2)
-                : null,
-            'status' => CardAccount::STATUS_OPEN,
-        ]);
+        return DB::transaction(function () use ($creator, $data) {
+            $account = CardAccount::query()->create([
+                'user_id' => $creator->id,
+                'holder_name' => trim($data['holder_name']),
+                'account_holder_name' => trim($data['account_holder_name'] ?? $data['holder_name']),
+                'bank_type' => trim($data['bank_type'] ?? '') ?: null,
+                'account_number' => trim($data['account_number'] ?? '') ?: null,
+                'initial_real_balance' => array_key_exists('initial_real_balance', $data)
+                    && $data['initial_real_balance'] !== null
+                    && $data['initial_real_balance'] !== ''
+                    ? round((float) $data['initial_real_balance'], 2)
+                    : null,
+                'status' => CardAccount::STATUS_OPEN,
+            ]);
+
+            $assignedUser = User::query()->findOrFail((int) $data['assigned_user_id']);
+            $this->assignUserToCard($account, $assignedUser);
+
+            if (! $creator->isAdmin() && $creator->id !== $assignedUser->id) {
+                $this->assignUserToCard($account, $creator);
+            }
+
+            return $account;
+        });
     }
 
     public function updateAccount(CardAccount $account, array $data): CardAccount
@@ -50,9 +61,117 @@ class CardAccountService
     /**
      * @return Collection<int, array<string, mixed>>
      */
-    public function openAccountCards(): Collection
+    public function openAccountCardsFor(User $user): Collection
     {
-        return CardAccount::openAccounts()->map(fn (CardAccount $account) => $this->formatAccountCard($account));
+        $query = CardAccount::query()
+            ->where('status', CardAccount::STATUS_OPEN)
+            ->orderByDesc('id');
+
+        if (! $user->isAdmin()) {
+            $query->whereHas(
+                'assignedUsers',
+                fn ($assigned) => $assigned->where('users.id', $user->id),
+            );
+        }
+
+        return $query->get()->map(fn (CardAccount $account) => $this->formatAccountCard($account));
+    }
+
+    public function userCanAccessCard(User $user, CardAccount $account): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $account->assignedUsers()->where('users.id', $user->id)->exists();
+    }
+
+    public function assertUserCanAccessCard(User $user, CardAccount $account): void
+    {
+        abort_unless(
+            $this->userCanAccessCard($user, $account),
+            403,
+            'No tienes acceso a esta tarjeta.',
+        );
+    }
+
+    /**
+     * @return array<int, array{id: int, label: string}>
+     */
+    public function assignableUsersForCardForm(): array
+    {
+        return User::query()
+            ->where('role', User::ROLE_REPARTIDOR)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'label' => $user->name,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{id: int, label: string, status: string}>
+     */
+    public function cardOptionsForPermissionsEditor(): array
+    {
+        return CardAccount::query()
+            ->orderByDesc('id')
+            ->get(['id', 'holder_name', 'account_holder_name', 'status'])
+            ->map(fn (CardAccount $account) => [
+                'id' => $account->id,
+                'label' => trim(($account->account_holder_name ?: $account->holder_name) ?? 'Tarjeta #'.$account->id),
+                'status' => $account->status,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public function assignedCardIdsForUser(User $user): array
+    {
+        return $user->assignedCardAccounts()
+            ->pluck('card_accounts.id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, int|string>  $cardAccountIds
+     */
+    public function syncUserCardAssignments(User $user, array $cardAccountIds): void
+    {
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        $ids = collect($cardAccountIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $validIds = CardAccount::query()
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->all();
+
+        $user->assignedCardAccounts()->sync($validIds);
+    }
+
+    private function assignUserToCard(CardAccount $account, User $user): void
+    {
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        $account->assignedUsers()->syncWithoutDetaching([$user->id]);
     }
 
     /**

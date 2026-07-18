@@ -238,6 +238,7 @@ export default function CardAccountShow({
         canUpdate,
         canDelete,
         canPayment,
+        canRealDeposit,
     } = useSectionAccess('card_account');
 
     const page = usePage();
@@ -479,7 +480,7 @@ export default function CardAccountShow({
                                 Registrar abono
                             </button>
                         )}
-                        {canUpdate && realBalanceConfigured && (
+                        {canRealDeposit && realBalanceConfigured && (
                             <button
                                 type="button"
                                 onClick={() => {

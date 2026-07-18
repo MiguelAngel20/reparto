@@ -9,7 +9,7 @@ export type CardAccountSectionPermission = {
     update: boolean;
     delete: boolean;
     payment: boolean;
-    liquidate: boolean;
+    real_deposit: boolean;
 };
 
 export type SectionPermissionMap = Partial<
@@ -40,7 +40,7 @@ export function useSectionAccess(section: SectionKey) {
     if (section === 'card_account') {
         const granular = isCardAccountAccess(access)
             ? access
-            : { view: false, create: false, update: false, delete: false, payment: false, liquidate: false };
+            : { view: false, create: false, update: false, delete: false, payment: false, real_deposit: false };
 
         return {
             canView: isAdmin || granular.view,
@@ -49,7 +49,7 @@ export function useSectionAccess(section: SectionKey) {
             canUpdate: isAdmin || granular.update,
             canDelete: isAdmin || granular.delete,
             canPayment: isAdmin || granular.payment,
-            canLiquidate: isAdmin || granular.liquidate,
+            canRealDeposit: isAdmin || granular.real_deposit,
         };
     }
 
@@ -62,7 +62,7 @@ export function useSectionAccess(section: SectionKey) {
         canUpdate: isAdmin || simple.edit,
         canDelete: isAdmin || simple.edit,
         canPayment: false,
-        canLiquidate: false,
+        canRealDeposit: false,
     };
 }
 

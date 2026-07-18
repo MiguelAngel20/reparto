@@ -16,6 +16,8 @@ class UpdateUserSectionPermissionsRequest extends FormRequest
     {
         $rules = [
             'permissions' => ['required', 'array'],
+            'assigned_card_account_ids' => ['nullable', 'array'],
+            'assigned_card_account_ids.*' => ['integer', 'exists:card_accounts,id'],
         ];
 
         foreach (UserSection::all() as $section) {
@@ -71,5 +73,20 @@ class UpdateUserSectionPermissionsRequest extends FormRequest
         }
 
         $this->merge(['permissions' => $permissions]);
+
+        $assignedIds = $this->input('assigned_card_account_ids', []);
+
+        if (! is_array($assignedIds)) {
+            $assignedIds = [];
+        }
+
+        $this->merge([
+            'assigned_card_account_ids' => collect($assignedIds)
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn (int $id) => $id > 0)
+                ->unique()
+                ->values()
+                ->all(),
+        ]);
     }
 }

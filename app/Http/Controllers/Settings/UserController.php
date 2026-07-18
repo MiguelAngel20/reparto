@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateUserSectionPermissionsRequest;
 use App\Models\User;
+use App\Services\CardAccountService;
 use App\Services\UserSectionPermissionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class UserController extends Controller
 {
     public function __construct(
         private readonly UserSectionPermissionService $sectionPermissions,
+        private readonly CardAccountService $cardAccounts,
     ) {}
 
     public function index(Request $request): Response
@@ -53,6 +55,8 @@ class UserController extends Controller
                 'user' => $this->formatUser($user),
                 'permissions' => $this->sectionPermissions->editableMatrixForUser($user),
                 'isAdminUser' => true,
+                'cardAccounts' => $this->cardAccounts->cardOptionsForPermissionsEditor(),
+                'assignedCardAccountIds' => [],
             ]);
         }
 
@@ -62,6 +66,8 @@ class UserController extends Controller
             'user' => $this->formatUser($user),
             'permissions' => $this->sectionPermissions->editableMatrixForUser($user),
             'isAdminUser' => false,
+            'cardAccounts' => $this->cardAccounts->cardOptionsForPermissionsEditor(),
+            'assignedCardAccountIds' => $this->cardAccounts->assignedCardIdsForUser($user),
         ]);
     }
 
@@ -78,6 +84,11 @@ class UserController extends Controller
         $this->sectionPermissions->syncPermissions(
             $user,
             $request->validated('permissions'),
+        );
+
+        $this->cardAccounts->syncUserCardAssignments(
+            $user,
+            $request->validated('assigned_card_account_ids', []),
         );
 
         return redirect()

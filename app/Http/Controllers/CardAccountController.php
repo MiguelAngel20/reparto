@@ -24,14 +24,18 @@ class CardAccountController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $request->user();
+
         return Inertia::render('CardAccount/Index', [
-            'cards' => $this->cardAccounts->openAccountCards()->values()->all(),
+            'cards' => $this->cardAccounts->openAccountCardsFor($user)->values()->all(),
+            'assignableUsers' => $this->cardAccounts->assignableUsersForCardForm(),
         ]);
     }
 
     public function show(Request $request, CardAccount $account): Response|RedirectResponse
     {
         abort_unless($account->isOpen(), 404);
+        $this->cardAccounts->assertUserCanAccessCard($request->user(), $account);
 
         $summary = $this->cardAccounts->summaryForAccount($account);
 
@@ -60,6 +64,7 @@ class CardAccountController extends Controller
     public function update(UpdateCardAccountRequest $request, CardAccount $account): RedirectResponse
     {
         abort_unless($account->isOpen(), 404);
+        $this->cardAccounts->assertUserCanAccessCard($request->user(), $account);
 
         $this->cardAccounts->updateAccount($account, $request->validated());
 
@@ -71,6 +76,7 @@ class CardAccountController extends Controller
         CardAccount $account,
     ): RedirectResponse {
         abort_unless($account->isOpen(), 404);
+        $this->cardAccounts->assertUserCanAccessCard($request->user(), $account);
 
         $this->cardAccounts->addPurchase($account, $request->user(), $request->validated());
 
@@ -82,6 +88,7 @@ class CardAccountController extends Controller
         CardAccount $account,
     ): RedirectResponse {
         abort_unless($account->isOpen(), 404);
+        $this->cardAccounts->assertUserCanAccessCard($request->user(), $account);
 
         try {
             $this->cardAccounts->addPayment($account, $request->user(), $request->validated());
@@ -97,6 +104,7 @@ class CardAccountController extends Controller
         CardAccount $account,
     ): RedirectResponse {
         abort_unless($account->isOpen(), 404);
+        $this->cardAccounts->assertUserCanAccessCard($request->user(), $account);
 
         try {
             $this->cardAccounts->addRealDeposit($account, $request->user(), $request->validated());
@@ -114,6 +122,7 @@ class CardAccountController extends Controller
     ): RedirectResponse {
         abort_unless($account->isOpen(), 404);
         abort_unless($movement->card_account_id === $account->id, 404);
+        $this->cardAccounts->assertUserCanAccessCard($request->user(), $account);
 
         $this->cardAccounts->updateMovement($movement, $request->validated());
 
@@ -127,6 +136,7 @@ class CardAccountController extends Controller
     ): RedirectResponse {
         abort_unless($account->isOpen(), 404);
         abort_unless($movement->card_account_id === $account->id, 404);
+        $this->cardAccounts->assertUserCanAccessCard($request->user(), $account);
 
         $this->cardAccounts->deleteMovement($movement);
 
@@ -153,5 +163,4 @@ class CardAccountController extends Controller
             'opened_at' => $account->created_at?->format('d/m/Y'),
         ];
     }
-
 }

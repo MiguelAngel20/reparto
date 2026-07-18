@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CardAccount extends Model
@@ -39,6 +40,11 @@ class CardAccount extends Model
     public function movements(): HasMany
     {
         return $this->hasMany(CardAccountMovement::class);
+    }
+
+    public function assignedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'card_account_user')->withTimestamps();
     }
 
     public function isOpen(): bool

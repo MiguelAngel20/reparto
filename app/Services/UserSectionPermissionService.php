@@ -62,7 +62,7 @@ class UserSectionPermissionService
                 'can_update' => false,
                 'can_delete' => false,
                 'can_payment' => false,
-                'can_liquidate' => false,
+                'can_real_deposit' => false,
             ],
         ];
     }
@@ -206,7 +206,7 @@ class UserSectionPermissionService
                     || $row->can_update
                     || $row->can_delete
                     || $row->can_payment
-                    || $row->can_liquidate
+                    || $row->can_real_deposit
                 ));
         }
 
@@ -298,20 +298,21 @@ class UserSectionPermissionService
             }
         }
 
+        $payload = [
+            'can_view' => $canView,
+            'can_edit' => false,
+        ];
+
+        foreach (UserSection::granularActions($section) as $action) {
+            $payload['can_'.$action] = $actions[$action] ?? false;
+        }
+
         UserSectionPermission::query()->updateOrCreate(
             [
                 'user_id' => $user->id,
                 'section' => $section,
             ],
-            [
-                'can_view' => $canView,
-                'can_edit' => false,
-                'can_create' => $actions['create'] ?? false,
-                'can_update' => $actions['update'] ?? false,
-                'can_delete' => $actions['delete'] ?? false,
-                'can_payment' => $actions['payment'] ?? false,
-                'can_liquidate' => $actions['liquidate'] ?? false,
-            ],
+            $payload,
         );
     }
 
@@ -321,24 +322,25 @@ class UserSectionPermissionService
     private function granularMapFromRow(?UserSectionPermission $row): array
     {
         if (! $this->supportsGranularColumns()) {
-            return [
+            $map = [
                 'view' => (bool) ($row?->can_view),
                 'create' => false,
                 'update' => false,
                 'delete' => false,
                 'payment' => false,
-                'liquidate' => false,
+                'real_deposit' => false,
             ];
+
+            return $map;
         }
 
-        return [
-            'view' => (bool) ($row?->can_view),
-            'create' => (bool) ($row?->can_create),
-            'update' => (bool) ($row?->can_update),
-            'delete' => (bool) ($row?->can_delete),
-            'payment' => (bool) ($row?->can_payment),
-            'liquidate' => (bool) ($row?->can_liquidate),
-        ];
+        $map = ['view' => (bool) ($row?->can_view)];
+
+        foreach (UserSection::granularActions(UserSection::CARD_ACCOUNT) as $action) {
+            $map[$action] = (bool) ($row?->{'can_'.$action});
+        }
+
+        return $map;
     }
 
     /**
@@ -350,14 +352,12 @@ class UserSectionPermissionService
 
         foreach (UserSection::all() as $section) {
             if (UserSection::isGranular($section)) {
-                $map[$section] = [
-                    'view' => true,
-                    'create' => true,
-                    'update' => true,
-                    'delete' => true,
-                    'payment' => true,
-                    'liquidate' => true,
-                ];
+                $map[$section] = ['view' => true];
+
+                foreach (UserSection::granularActions($section) as $action) {
+                    $map[$section][$action] = true;
+                }
+
                 continue;
             }
 
