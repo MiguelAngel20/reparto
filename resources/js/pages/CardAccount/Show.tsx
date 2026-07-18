@@ -1,5 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
-import { Card } from '@/components/ui';
+import { Card, Pagination } from '@/components/ui';
 import {
     Dialog,
     DialogContent,
@@ -51,14 +51,18 @@ type MovementRow = {
     created_at: string | null;
     registered_by: string | null;
     editable: boolean;
+    marker_after: 'cycle_start' | 'settled' | null;
+    cycle_start_date_formatted: string | null;
 };
 
-type DebtCycleSection = {
-    cycle_start_date: string | null;
-    cycle_start_date_formatted: string | null;
-    purchases: MovementRow[];
-    payments: MovementRow[];
-    settled: boolean;
+type PaginatedMovements = {
+    data: MovementRow[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
 };
 
 interface CardAccountShowProps {
@@ -79,8 +83,8 @@ interface CardAccountShowProps {
     realBalance: number | null;
     realBalanceConfigured: boolean;
     balanceDisplay: BalanceDisplay;
-    debtCycles: DebtCycleSection[];
-    realDeposits: MovementRow[];
+    movements: PaginatedMovements;
+    perPageOptions: number[];
 }
 
 const breadcrumbs = (accountId: number): BreadcrumbItem[] => [
@@ -230,8 +234,8 @@ export default function CardAccountShow({
     realBalance,
     realBalanceConfigured,
     balanceDisplay,
-    debtCycles,
-    realDeposits,
+    movements,
+    perPageOptions = [20, 50, 75, 100],
 }: CardAccountShowProps) {
     const {
         canCreate,
@@ -368,11 +372,24 @@ export default function CardAccountShow({
         router.delete(`/cuenta-tarjeta/${account.id}/movimientos/${movement.id}`, { preserveScroll: true });
     };
 
-    const movementCount =
-        debtCycles.reduce(
-            (total, cycle) => total + cycle.purchases.length + cycle.payments.length,
-            0,
-        ) + realDeposits.length;
+    const visitMovements = (params: { page?: number; per_page?: number }) => {
+        router.get(
+            `/cuenta-tarjeta/${account.id}`,
+            {
+                page: params.page ?? movements.current_page,
+                per_page: params.per_page ?? movements.per_page,
+            },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
+
+    const handlePerPageChange = (perPage: number) => {
+        visitMovements({ page: 1, per_page: perPage });
+    };
+
+    const handlePageChange = (page: number) => {
+        visitMovements({ page });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs(account.id)} title="Cuenta tarjeta">
@@ -503,106 +520,81 @@ export default function CardAccountShow({
                                 Movimientos
                             </h2>
                             <p className="mt-1 text-sm text-slate-500">
-                                Compras arriba, abonos abajo. Cada ciclo muestra cuándo inició la deuda
-                                y cuándo quedó al corriente.
+                                Más recientes primero. Los separadores indican inicio de deuda y cuando
+                                quedó al corriente.
                             </p>
                         </div>
-                        {movementCount > 0 && (
+                        {movements.total > 0 && (
                             <p className="text-xs text-slate-500">
-                                {movementCount} movimiento{movementCount !== 1 ? 's' : ''}
+                                {movements.total} movimiento{movements.total !== 1 ? 's' : ''}
                             </p>
                         )}
                     </div>
 
-                    {movementCount === 0 ? (
+                    {movements.data.length === 0 ? (
                         <p className="mt-4 rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-[#3a3a3a]">
                             Aún no hay movimientos en esta cuenta.
                         </p>
                     ) : (
                         <ul className="mt-4 space-y-2">
-                            {debtCycles.map((cycle, cycleIndex) => {
-                                const cycleKey =
-                                    cycle.purchases[0]?.id ??
-                                    cycle.payments[0]?.id ??
-                                    `${cycle.cycle_start_date}-${cycleIndex}`;
-                                const isCurrentCycle = cycleIndex === 0;
-
-                                const purchaseItems = cycle.purchases.map((movement) => (
+                            {movements.data.map((movement) => (
+                                <Fragment key={movement.id}>
                                     <MovementListItem
-                                        key={movement.id}
                                         movement={movement}
                                         canUpdate={canUpdate}
                                         canDelete={canDelete}
                                         onEdit={openEdit}
                                         onDelete={deleteMovement}
                                     />
-                                ));
-
-                                const paymentItems = cycle.payments.map((movement) => (
-                                    <MovementListItem
-                                        key={movement.id}
-                                        movement={movement}
-                                        canUpdate={canUpdate}
-                                        canDelete={canDelete}
-                                        onEdit={openEdit}
-                                        onDelete={deleteMovement}
-                                    />
-                                ));
-
-                                const cycleStartSeparator =
-                                    cycle.purchases.length > 0 ? (
+                                    {movement.marker_after === 'cycle_start' && (
                                         <DebtCycleSeparator
                                             type="cycle_start"
-                                            date={cycle.cycle_start_date_formatted}
+                                            date={movement.cycle_start_date_formatted}
                                         />
-                                    ) : null;
-
-                                if (isCurrentCycle) {
-                                    return (
-                                        <Fragment key={cycleKey}>
-                                            {purchaseItems}
-                                            {cycleStartSeparator}
-                                            {paymentItems}
-                                            {cycle.settled && <DebtCycleSeparator type="settled" />}
-                                        </Fragment>
-                                    );
-                                }
-
-                                return (
-                                    <Fragment key={cycleKey}>
-                                        {paymentItems}
-                                        {cycle.settled && <DebtCycleSeparator type="settled" />}
-                                        {purchaseItems}
-                                        {cycleStartSeparator}
-                                    </Fragment>
-                                );
-                            })}
-
-                            {realDeposits.length > 0 && (
-                                <>
-                                    <li
-                                        aria-hidden
-                                        className="flex items-center gap-3 py-2 pt-4"
-                                    >
-                                        <div className="h-px flex-1 bg-slate-200 dark:bg-[#3a3a3a]" />
-                                        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                            Depósitos reales
-                                        </span>
-                                        <div className="h-px flex-1 bg-slate-200 dark:bg-[#3a3a3a]" />
-                                    </li>
-                                    {realDeposits.map((movement) => (
-                                        <MovementListItem
-                                            key={movement.id}
-                                            movement={movement}
-                                            canUpdate={canUpdate}
-                                            canDelete={canDelete}
-                                            onEdit={openEdit}
-                                            onDelete={deleteMovement}
-                                        />
-                                    ))}
-                                </>
-                            )}
+                                    )}
+                                    {movement.marker_after === 'settled' && (
+                                        <DebtCycleSeparator type="settled" />
+                                    )}
+                                </Fragment>
+                            ))}
                         </ul>
+                    )}
+
+                    {movements.total > 0 && (
+                        <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-[#3a3a3a] sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                                <label htmlFor="card-movements-per-page" className="shrink-0">
+                                    Mostrar
+                                </label>
+                                <select
+                                    id="card-movements-per-page"
+                                    value={movements.per_page}
+                                    onChange={(e) => handlePerPageChange(Number(e.target.value))}
+                                    className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 dark:border-[#3a3a3a] dark:bg-[#1f1f1f] dark:text-slate-200"
+                                >
+                                    {perPageOptions.map((option) => (
+                                        <option key={option} value={option}>
+                                            {option}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className="shrink-0">por página</span>
+                                {movements.from !== null && movements.to !== null && (
+                                    <span className="text-xs sm:ml-1">
+                                        ({movements.from}–{movements.to} de {movements.total})
+                                    </span>
+                                )}
+                            </div>
+
+                            {movements.last_page > 1 && (
+                                <Pagination
+                                    currentPage={movements.current_page}
+                                    totalPages={movements.last_page}
+                                    onPageChange={handlePageChange}
+                                    iconOnly
+                                />
+                            )}
+                        </div>
                     )}
                 </Card>
 

@@ -293,20 +293,13 @@ class CardAccountService
     }
 
     /**
-     * Agrupa compras y abonos en ciclos de deuda (más reciente primero).
+     * Marca separadores de ciclo de deuda para listado descendente.
      *
-     * @return array<int, array{
-     *     cycle_start_date: string|null,
-     *     cycle_start_date_formatted: string|null,
-     *     purchases: array<int, array<string, mixed>>,
-     *     payments: array<int, array<string, mixed>>,
-     *     settled: bool
-     * }>
+     * @return array<int, array{after?: string, cycle_start_date_formatted?: string|null}>
      */
-    public function debtCycleSections(CardAccount $account): array
+    public function debtCycleMarkers(CardAccount $account): array
     {
         $movements = $account->movements()
-            ->with(['user:id,name', 'account:id,status'])
             ->whereIn('type', [
                 CardAccountMovement::TYPE_PURCHASE,
                 CardAccountMovement::TYPE_PAYMENT,
@@ -317,60 +310,49 @@ class CardAccountService
 
         $balance = 0.0;
         $wasSettled = true;
-        $sections = [];
-        $currentIndex = -1;
+        $cycleStartMovementId = null;
+        $cycleStartDateFormatted = null;
+        $markers = [];
 
         foreach ($movements as $movement) {
             if ($movement->isPurchase()) {
                 if ($wasSettled) {
                     $movementDate = $movement->movement_date ?? $movement->created_at;
-
-                    $sections[] = [
-                        'cycle_start_date' => $movementDate?->format('Y-m-d'),
-                        'cycle_start_date_formatted' => $movementDate?->format('d/m/Y'),
-                        'purchases' => [],
-                        'payments' => [],
-                        'settled' => false,
-                    ];
-                    $currentIndex = count($sections) - 1;
+                    $cycleStartMovementId = $movement->id;
+                    $cycleStartDateFormatted = $movementDate?->format('d/m/Y');
                 }
 
-                $sections[$currentIndex]['purchases'][] = $this->formatMovement($movement);
                 $balance = round($balance + (float) $movement->amount, 2);
                 $wasSettled = false;
 
                 continue;
             }
 
-            if ($movement->isPayment() && $currentIndex >= 0) {
-                $sections[$currentIndex]['payments'][] = $this->formatMovement($movement);
+            if ($movement->isPayment()) {
                 $balance = round($balance - (float) $movement->amount, 2);
 
                 if ($balance < 0.01) {
                     $balance = 0.0;
-                    $sections[$currentIndex]['settled'] = true;
+
+                    if ($cycleStartMovementId !== null) {
+                        $markers[$cycleStartMovementId]['after'] = 'cycle_start';
+                        $markers[$cycleStartMovementId]['cycle_start_date_formatted'] = $cycleStartDateFormatted;
+                    }
+
+                    $markers[$movement->id]['after'] = 'settled';
                     $wasSettled = true;
+                    $cycleStartMovementId = null;
+                    $cycleStartDateFormatted = null;
                 }
             }
         }
 
-        return array_reverse(array_values($sections));
-    }
+        if ($cycleStartMovementId !== null) {
+            $markers[$cycleStartMovementId]['after'] = 'cycle_start';
+            $markers[$cycleStartMovementId]['cycle_start_date_formatted'] = $cycleStartDateFormatted;
+        }
 
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    public function realDepositMovements(CardAccount $account): array
-    {
-        return $account->movements()
-            ->with(['user:id,name', 'account:id,status'])
-            ->where('type', CardAccountMovement::TYPE_REAL_DEPOSIT)
-            ->orderByDesc('movement_date')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (CardAccountMovement $movement) => $this->formatMovement($movement))
-            ->values()
-            ->all();
+        return $markers;
     }
 
     /**

@@ -18,6 +18,8 @@ use Inertia\Response;
 
 class CardAccountController extends Controller
 {
+    private const PER_PAGE_OPTIONS = [20, 50, 75, 100];
+
     public function __construct(
         private readonly CardAccountService $cardAccounts,
     ) {}
@@ -38,6 +40,24 @@ class CardAccountController extends Controller
         $this->cardAccounts->assertUserCanAccessCard($request->user(), $account);
 
         $summary = $this->cardAccounts->summaryForAccount($account);
+        $perPage = $this->resolvePerPage($request);
+        $cycleMarkers = $this->cardAccounts->debtCycleMarkers($account);
+
+        $movements = $account->movements()
+            ->with(['user:id,name', 'account:id,status'])
+            ->orderByDesc('movement_date')
+            ->orderByDesc('id')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(function (CardAccountMovement $movement) use ($cycleMarkers) {
+                $formatted = $this->cardAccounts->formatMovement($movement);
+                $markers = $cycleMarkers[$movement->id] ?? [];
+
+                $formatted['marker_after'] = $markers['after'] ?? null;
+                $formatted['cycle_start_date_formatted'] = $markers['cycle_start_date_formatted'] ?? null;
+
+                return $formatted;
+            });
 
         return Inertia::render('CardAccount/Show', [
             'account' => $this->formatAccountDetail($summary['account'], $summary),
@@ -47,8 +67,8 @@ class CardAccountController extends Controller
             'realBalance' => $summary['real_balance'],
             'realBalanceConfigured' => $summary['real_balance_configured'],
             'balanceDisplay' => $summary['balance_display'],
-            'debtCycles' => $this->cardAccounts->debtCycleSections($account),
-            'realDeposits' => $this->cardAccounts->realDepositMovements($account),
+            'movements' => $movements,
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
         ]);
     }
 
@@ -162,5 +182,12 @@ class CardAccountController extends Controller
             'real_balance_configured' => $summary['real_balance_configured'],
             'opened_at' => $account->created_at?->format('d/m/Y'),
         ];
+    }
+
+    private function resolvePerPage(Request $request): int
+    {
+        $perPage = (int) $request->input('per_page', 20);
+
+        return in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : 20;
     }
 }
