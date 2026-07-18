@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\CardAccount;
 
+use App\Models\CardAccountMovement;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCardAccountPaymentRequest extends FormRequest
 {
@@ -18,6 +20,13 @@ class StoreCardAccountPaymentRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:500'],
             'movement_date' => ['required', 'date', 'before_or_equal:today'],
+            'payment_method' => [
+                'required',
+                Rule::in([
+                    CardAccountMovement::PAYMENT_METHOD_CASH,
+                    CardAccountMovement::PAYMENT_METHOD_TRANSFER,
+                ]),
+            ],
         ];
     }
 

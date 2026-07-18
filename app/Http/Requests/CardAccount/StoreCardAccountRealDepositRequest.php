@@ -6,7 +6,7 @@ use App\Models\CardAccountMovement;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateCardAccountMovementRequest extends FormRequest
+class StoreCardAccountRealDepositRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -20,21 +20,6 @@ class UpdateCardAccountMovementRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:500'],
             'movement_date' => ['required', 'date', 'before_or_equal:today'],
-            'payment_method' => [
-                'nullable',
-                Rule::in([
-                    CardAccountMovement::PAYMENT_METHOD_CASH,
-                    CardAccountMovement::PAYMENT_METHOD_TRANSFER,
-                ]),
-            ],
-        ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'movement_date.required' => 'Indica la fecha del registro.',
-            'movement_date.before_or_equal' => 'La fecha no puede ser futura.',
         ];
     }
 }

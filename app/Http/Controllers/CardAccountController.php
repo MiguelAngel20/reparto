@@ -4,80 +4,87 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CardAccount\StoreCardAccountPaymentRequest;
 use App\Http\Requests\CardAccount\StoreCardAccountPurchaseRequest;
+use App\Http\Requests\CardAccount\StoreCardAccountRealDepositRequest;
+use App\Http\Requests\CardAccount\StoreCardAccountRequest;
 use App\Http\Requests\CardAccount\UpdateCardAccountMovementRequest;
+use App\Http\Requests\CardAccount\UpdateCardAccountRequest;
+use App\Models\CardAccount;
 use App\Models\CardAccountMovement;
 use App\Services\CardAccountService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CardAccountController extends Controller
 {
-    private const PER_PAGE_OPTIONS = [20, 50, 75, 100];
-
     public function __construct(
         private readonly CardAccountService $cardAccounts,
     ) {}
 
     public function index(Request $request): Response
     {
-        $summary = $this->cardAccounts->summary();
-        $account = $summary['account'];
-        $perPage = $this->resolvePerPage($request);
-
-        if ($account) {
-            $movements = $account->movements()
-                ->with(['user:id,name', 'account:id,status'])
-                ->orderByDesc('movement_date')
-                ->orderByDesc('id')
-                ->paginate($perPage)
-                ->withQueryString()
-                ->through(fn (CardAccountMovement $movement) => $this->cardAccounts->formatMovement($movement));
-        } else {
-            $movements = new LengthAwarePaginator(
-                [],
-                0,
-                $perPage,
-                1,
-                ['path' => $request->url(), 'query' => $request->query()],
-            );
-        }
-
         return Inertia::render('CardAccount/Index', [
-            'account' => $account ? [
-                'id' => $account->id,
-                'holder_name' => $account->holder_name,
-                'opened_at' => $account->created_at?->format('d/m/Y'),
-            ] : null,
-            'balance' => $summary['balance'],
-            'totalPurchases' => $summary['total_purchases'],
-            'totalPayments' => $summary['total_payments'],
-            'balanceDisplay' => $summary['balance_display'],
-            'readyToLiquidate' => abs($summary['balance']) < 0.01 && $account !== null,
-            'movements' => $movements,
-            'perPageOptions' => self::PER_PAGE_OPTIONS,
+            'cards' => $this->cardAccounts->openAccountCards()->values()->all(),
         ]);
     }
 
-    public function storePurchase(StoreCardAccountPurchaseRequest $request): RedirectResponse
+    public function show(Request $request, CardAccount $account): Response|RedirectResponse
     {
-        $validated = $request->validated();
+        abort_unless($account->isOpen(), 404);
 
-        $this->cardAccounts->addPurchase(
-            $request->user(),
-            $validated,
-            $validated['holder_name'] ?? null,
-        );
+        $summary = $this->cardAccounts->summaryForAccount($account);
+
+        return Inertia::render('CardAccount/Show', [
+            'account' => $this->formatAccountDetail($summary['account'], $summary),
+            'balance' => $summary['balance'],
+            'totalPurchases' => $summary['total_purchases'],
+            'totalPayments' => $summary['total_payments'],
+            'realBalance' => $summary['real_balance'],
+            'realBalanceConfigured' => $summary['real_balance_configured'],
+            'balanceDisplay' => $summary['balance_display'],
+            'debtCycles' => $this->cardAccounts->debtCycleSections($account),
+            'realDeposits' => $this->cardAccounts->realDepositMovements($account),
+        ]);
+    }
+
+    public function store(StoreCardAccountRequest $request): RedirectResponse
+    {
+        $account = $this->cardAccounts->createAccount($request->user(), $request->validated());
+
+        return redirect()
+            ->route('card-account.show', $account)
+            ->with('success', 'Tarjeta registrada.');
+    }
+
+    public function update(UpdateCardAccountRequest $request, CardAccount $account): RedirectResponse
+    {
+        abort_unless($account->isOpen(), 404);
+
+        $this->cardAccounts->updateAccount($account, $request->validated());
+
+        return back()->with('success', 'Datos de la tarjeta actualizados.');
+    }
+
+    public function storePurchase(
+        StoreCardAccountPurchaseRequest $request,
+        CardAccount $account,
+    ): RedirectResponse {
+        abort_unless($account->isOpen(), 404);
+
+        $this->cardAccounts->addPurchase($account, $request->user(), $request->validated());
 
         return back()->with('success', 'Compra registrada.');
     }
 
-    public function storePayment(StoreCardAccountPaymentRequest $request): RedirectResponse
-    {
+    public function storePayment(
+        StoreCardAccountPaymentRequest $request,
+        CardAccount $account,
+    ): RedirectResponse {
+        abort_unless($account->isOpen(), 404);
+
         try {
-            $this->cardAccounts->addPayment($request->user(), $request->validated());
+            $this->cardAccounts->addPayment($account, $request->user(), $request->validated());
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -85,37 +92,66 @@ class CardAccountController extends Controller
         return back()->with('success', 'Abono registrado.');
     }
 
-    public function update(
+    public function storeRealDeposit(
+        StoreCardAccountRealDepositRequest $request,
+        CardAccount $account,
+    ): RedirectResponse {
+        abort_unless($account->isOpen(), 404);
+
+        try {
+            $this->cardAccounts->addRealDeposit($account, $request->user(), $request->validated());
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Dinero real agregado a la tarjeta.');
+    }
+
+    public function updateMovement(
         UpdateCardAccountMovementRequest $request,
+        CardAccount $account,
         CardAccountMovement $movement,
     ): RedirectResponse {
+        abort_unless($account->isOpen(), 404);
+        abort_unless($movement->card_account_id === $account->id, 404);
+
         $this->cardAccounts->updateMovement($movement, $request->validated());
 
         return back()->with('success', 'Registro actualizado.');
     }
 
-    public function destroy(Request $request, CardAccountMovement $movement): RedirectResponse
-    {
+    public function destroyMovement(
+        Request $request,
+        CardAccount $account,
+        CardAccountMovement $movement,
+    ): RedirectResponse {
+        abort_unless($account->isOpen(), 404);
+        abort_unless($movement->card_account_id === $account->id, 404);
+
         $this->cardAccounts->deleteMovement($movement);
 
         return back()->with('success', 'Registro eliminado.');
     }
 
-    public function liquidate(Request $request): RedirectResponse
+    /**
+     * @param  array<string, mixed>  $summary
+     * @return array<string, mixed>
+     */
+    private function formatAccountDetail(CardAccount $account, array $summary): array
     {
-        try {
-            $this->cardAccounts->liquidate();
-        } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        return back()->with('success', 'Cuenta liquidada. Puedes iniciar una nueva cuando quieras.');
+        return [
+            'id' => $account->id,
+            'holder_name' => $account->holder_name,
+            'account_holder_name' => $account->account_holder_name ?? $account->holder_name,
+            'bank_type' => $account->bank_type,
+            'account_number' => $account->account_number,
+            'initial_real_balance' => $account->initial_real_balance !== null
+                ? (float) $account->initial_real_balance
+                : null,
+            'real_balance' => $summary['real_balance'],
+            'real_balance_configured' => $summary['real_balance_configured'],
+            'opened_at' => $account->created_at?->format('d/m/Y'),
+        ];
     }
 
-    private function resolvePerPage(Request $request): int
-    {
-        $perPage = (int) $request->input('per_page', 20);
-
-        return in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : 20;
-    }
 }

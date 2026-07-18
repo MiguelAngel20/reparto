@@ -71,21 +71,26 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('cuenta-tarjeta')->name('card-account.')->middleware('section:'.UserSection::CARD_ACCOUNT.',view')->group(function () {
         Route::get('/', [CardAccountController::class, 'index'])->name('index');
-        Route::post('/compras', [CardAccountController::class, 'storePurchase'])
-            ->middleware('section:'.UserSection::CARD_ACCOUNT.',create')
-            ->name('purchases.store');
-        Route::post('/abonos', [CardAccountController::class, 'storePayment'])
+        Route::get('/{account}', [CardAccountController::class, 'show'])->name('show');
+        Route::middleware('section:'.UserSection::CARD_ACCOUNT.',create')->group(function () {
+            Route::post('/', [CardAccountController::class, 'store'])->name('store');
+            Route::post('/{account}/compras', [CardAccountController::class, 'storePurchase'])->name('purchases.store');
+        });
+        Route::post('/{account}/abonos', [CardAccountController::class, 'storePayment'])
             ->middleware('section:'.UserSection::CARD_ACCOUNT.',payment')
             ->name('payments.store');
-        Route::put('/movimientos/{movement}', [CardAccountController::class, 'update'])
+        Route::post('/{account}/deposito-real', [CardAccountController::class, 'storeRealDeposit'])
+            ->middleware('section:'.UserSection::CARD_ACCOUNT.',update')
+            ->name('real-deposits.store');
+        Route::put('/{account}', [CardAccountController::class, 'update'])
+            ->middleware('section:'.UserSection::CARD_ACCOUNT.',update')
+            ->name('update');
+        Route::put('/{account}/movimientos/{movement}', [CardAccountController::class, 'updateMovement'])
             ->middleware('section:'.UserSection::CARD_ACCOUNT.',update')
             ->name('movements.update');
-        Route::delete('/movimientos/{movement}', [CardAccountController::class, 'destroy'])
+        Route::delete('/{account}/movimientos/{movement}', [CardAccountController::class, 'destroyMovement'])
             ->middleware('section:'.UserSection::CARD_ACCOUNT.',delete')
             ->name('movements.destroy');
-        Route::post('/liquidar', [CardAccountController::class, 'liquidate'])
-            ->middleware('section:'.UserSection::CARD_ACCOUNT.',liquidate')
-            ->name('liquidate');
     });
 
     Route::prefix('cuenta-empresa')->name('company-balance.')->middleware('section:'.UserSection::COMPANY_BALANCE.',view')->group(function () {

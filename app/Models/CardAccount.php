@@ -15,6 +15,10 @@ class CardAccount extends Model
     protected $fillable = [
         'user_id',
         'holder_name',
+        'account_holder_name',
+        'bank_type',
+        'account_number',
+        'initial_real_balance',
         'status',
         'closed_at',
     ];
@@ -22,6 +26,7 @@ class CardAccount extends Model
     protected function casts(): array
     {
         return [
+            'initial_real_balance' => 'decimal:2',
             'closed_at' => 'datetime',
         ];
     }
@@ -47,5 +52,14 @@ class CardAccount extends Model
             ->where('status', self::STATUS_OPEN)
             ->latest('id')
             ->first();
+    }
+
+    /** @return \Illuminate\Database\Eloquent\Collection<int, self> */
+    public static function openAccounts()
+    {
+        return self::query()
+            ->where('status', self::STATUS_OPEN)
+            ->orderByDesc('id')
+            ->get();
     }
 }

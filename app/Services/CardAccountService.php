@@ -5,41 +5,71 @@ namespace App\Services;
 use App\Models\CardAccount;
 use App\Models\CardAccountMovement;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class CardAccountService
 {
-    public function ensureOpenAccount(User $user, ?string $holderName = null): CardAccount
+    public function createAccount(User $user, array $data): CardAccount
     {
-        $existing = CardAccount::openAccount();
-        if ($existing) {
-            if ($holderName && ! $existing->holder_name) {
-                $existing->update(['holder_name' => trim($holderName)]);
-            }
-
-            return $existing;
-        }
-
         return CardAccount::query()->create([
             'user_id' => $user->id,
-            'holder_name' => $holderName ? trim($holderName) : null,
+            'holder_name' => trim($data['holder_name']),
+            'account_holder_name' => trim($data['account_holder_name'] ?? $data['holder_name']),
+            'bank_type' => trim($data['bank_type'] ?? '') ?: null,
+            'account_number' => trim($data['account_number'] ?? '') ?: null,
+            'initial_real_balance' => array_key_exists('initial_real_balance', $data)
+                && $data['initial_real_balance'] !== null
+                && $data['initial_real_balance'] !== ''
+                ? round((float) $data['initial_real_balance'], 2)
+                : null,
             'status' => CardAccount::STATUS_OPEN,
         ]);
     }
 
+    public function updateAccount(CardAccount $account, array $data): CardAccount
+    {
+        abort_unless($account->isOpen(), 403, 'No puedes editar una cuenta liquidada.');
+
+        $account->update([
+            'holder_name' => trim($data['holder_name']),
+            'account_holder_name' => trim($data['account_holder_name'] ?? $data['holder_name']),
+            'bank_type' => trim($data['bank_type'] ?? '') ?: null,
+            'account_number' => trim($data['account_number'] ?? '') ?: null,
+            'initial_real_balance' => array_key_exists('initial_real_balance', $data)
+                && $data['initial_real_balance'] !== null
+                && $data['initial_real_balance'] !== ''
+                ? round((float) $data['initial_real_balance'], 2)
+                : null,
+        ]);
+
+        return $account->fresh();
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function openAccountCards(): Collection
+    {
+        return CardAccount::openAccounts()->map(fn (CardAccount $account) => $this->formatAccountCard($account));
+    }
+
     /**
      * @return array{
-     *     account: CardAccount|null,
+     *     account: CardAccount,
      *     balance: float,
      *     total_purchases: float,
      *     total_payments: float,
+     *     real_balance: float|null,
+     *     real_balance_configured: bool,
      *     balance_display: array{label: string, tone: string, value: string, direction: string|null}
      * }
      */
-    public function summary(): array
+    public function summaryForAccount(CardAccount $account): array
     {
-        $account = CardAccount::openAccount();
+        abort_unless($account->isOpen(), 404);
+
         $totals = $this->totalsForAccount($account);
 
         return [
@@ -47,17 +77,19 @@ class CardAccountService
             'balance' => $totals['balance'],
             'total_purchases' => $totals['total_purchases'],
             'total_payments' => $totals['total_payments'],
+            'real_balance' => $this->realBalanceForAccount($account),
+            'real_balance_configured' => $account->initial_real_balance !== null,
             'balance_display' => $this->formatBalanceDisplay(
                 $totals['balance'],
-                $account?->holder_name,
+                $account->holder_name,
             ),
         ];
     }
 
-    public function addPurchase(User $user, array $data, ?string $holderName = null): CardAccountMovement
+    public function addPurchase(CardAccount $account, User $user, array $data): CardAccountMovement
     {
-        return DB::transaction(function () use ($user, $data, $holderName) {
-            $account = $this->ensureOpenAccount($user, $holderName);
+        return DB::transaction(function () use ($account, $user, $data) {
+            abort_unless($account->isOpen(), 403);
 
             return CardAccountMovement::query()->create([
                 'card_account_id' => $account->id,
@@ -71,19 +103,41 @@ class CardAccountService
         });
     }
 
-    public function addPayment(User $user, array $data): CardAccountMovement
+    public function addPayment(CardAccount $account, User $user, array $data): CardAccountMovement
     {
-        return DB::transaction(function () use ($user, $data) {
-            $account = CardAccount::openAccount();
+        return DB::transaction(function () use ($account, $user, $data) {
+            abort_unless($account->isOpen(), 403);
 
-            if (! $account) {
-                throw new InvalidArgumentException('No hay una cuenta de tarjeta abierta.');
-            }
+            $method = $data['payment_method'] ?? CardAccountMovement::PAYMENT_METHOD_CASH;
 
             return CardAccountMovement::query()->create([
                 'card_account_id' => $account->id,
                 'user_id' => $user->id,
                 'type' => CardAccountMovement::TYPE_PAYMENT,
+                'payment_method' => $method,
+                'name' => trim($data['name']),
+                'amount' => round((float) $data['amount'], 2),
+                'description' => $data['description'] ?? null,
+                'movement_date' => $data['movement_date'],
+            ]);
+        });
+    }
+
+    public function addRealDeposit(CardAccount $account, User $user, array $data): CardAccountMovement
+    {
+        return DB::transaction(function () use ($account, $user, $data) {
+            abort_unless($account->isOpen(), 403);
+
+            if ($account->initial_real_balance === null) {
+                throw new InvalidArgumentException(
+                    'Configura el monto inicial de la tarjeta antes de registrar depósitos reales.',
+                );
+            }
+
+            return CardAccountMovement::query()->create([
+                'card_account_id' => $account->id,
+                'user_id' => $user->id,
+                'type' => CardAccountMovement::TYPE_REAL_DEPOSIT,
                 'name' => trim($data['name']),
                 'amount' => round((float) $data['amount'], 2),
                 'description' => $data['description'] ?? null,
@@ -94,64 +148,117 @@ class CardAccountService
 
     public function updateMovement(CardAccountMovement $movement, array $data): CardAccountMovement
     {
-        $this->assertMovementBelongsToOpenAccount($movement);
+        $this->assertMovementEditable($movement);
 
-        $movement->update([
+        $updates = [
             'name' => trim($data['name']),
             'amount' => round((float) $data['amount'], 2),
             'description' => $data['description'] ?? null,
             'movement_date' => $data['movement_date'] ?? $movement->movement_date,
-        ]);
+        ];
+
+        if ($movement->isPayment() && array_key_exists('payment_method', $data)) {
+            $updates['payment_method'] = $data['payment_method'];
+        }
+
+        $movement->update($updates);
 
         return $movement->fresh();
     }
 
     public function deleteMovement(CardAccountMovement $movement): void
     {
-        $this->assertMovementBelongsToOpenAccount($movement);
+        $this->assertMovementEditable($movement);
 
         $movement->delete();
     }
 
-    public function liquidate(): CardAccount
+    /**
+     * Agrupa compras y abonos en ciclos de deuda (más reciente primero).
+     *
+     * @return array<int, array{
+     *     cycle_start_date: string|null,
+     *     cycle_start_date_formatted: string|null,
+     *     purchases: array<int, array<string, mixed>>,
+     *     payments: array<int, array<string, mixed>>,
+     *     settled: bool
+     * }>
+     */
+    public function debtCycleSections(CardAccount $account): array
     {
-        return DB::transaction(function () {
-            $account = CardAccount::openAccount();
+        $movements = $account->movements()
+            ->with(['user:id,name', 'account:id,status'])
+            ->whereIn('type', [
+                CardAccountMovement::TYPE_PURCHASE,
+                CardAccountMovement::TYPE_PAYMENT,
+            ])
+            ->orderBy('movement_date')
+            ->orderBy('id')
+            ->get();
 
-            if (! $account) {
-                throw new InvalidArgumentException('No hay una cuenta de tarjeta abierta.');
+        $balance = 0.0;
+        $wasSettled = true;
+        $sections = [];
+        $currentIndex = -1;
+
+        foreach ($movements as $movement) {
+            if ($movement->isPurchase()) {
+                if ($wasSettled) {
+                    $movementDate = $movement->movement_date ?? $movement->created_at;
+
+                    $sections[] = [
+                        'cycle_start_date' => $movementDate?->format('Y-m-d'),
+                        'cycle_start_date_formatted' => $movementDate?->format('d/m/Y'),
+                        'purchases' => [],
+                        'payments' => [],
+                        'settled' => false,
+                    ];
+                    $currentIndex = count($sections) - 1;
+                }
+
+                $sections[$currentIndex]['purchases'][] = $this->formatMovement($movement);
+                $balance = round($balance + (float) $movement->amount, 2);
+                $wasSettled = false;
+
+                continue;
             }
 
-            $balance = $this->totalsForAccount($account)['balance'];
+            if ($movement->isPayment() && $currentIndex >= 0) {
+                $sections[$currentIndex]['payments'][] = $this->formatMovement($movement);
+                $balance = round($balance - (float) $movement->amount, 2);
 
-            if (abs($balance) >= 0.01) {
-                throw new InvalidArgumentException(
-                    'El saldo debe estar en cero antes de liquidar la cuenta.',
-                );
+                if ($balance < 0.01) {
+                    $balance = 0.0;
+                    $sections[$currentIndex]['settled'] = true;
+                    $wasSettled = true;
+                }
             }
+        }
 
-            $account->update([
-                'status' => CardAccount::STATUS_CLOSED,
-                'closed_at' => now(),
-            ]);
+        return array_reverse(array_values($sections));
+    }
 
-            return $account->fresh();
-        });
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function realDepositMovements(CardAccount $account): array
+    {
+        return $account->movements()
+            ->with(['user:id,name', 'account:id,status'])
+            ->where('type', CardAccountMovement::TYPE_REAL_DEPOSIT)
+            ->orderByDesc('movement_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (CardAccountMovement $movement) => $this->formatMovement($movement))
+            ->values()
+            ->all();
     }
 
     /**
      * @return array{total_purchases: float, total_payments: float, balance: float}
      */
-    public function totalsForAccount(?CardAccount $account): array
+    public function totalsForAccount(CardAccount $account): array
     {
-        if (! $account) {
-            return [
-                'total_purchases' => 0.0,
-                'total_payments' => 0.0,
-                'balance' => 0.0,
-            ];
-        }
-
         $totalPurchases = (float) $account->movements()
             ->where('type', CardAccountMovement::TYPE_PURCHASE)
             ->sum('amount');
@@ -167,6 +274,65 @@ class CardAccountService
         ];
     }
 
+    public function realBalanceForAccount(CardAccount $account): ?float
+    {
+        if ($account->initial_real_balance === null) {
+            return null;
+        }
+
+        $initial = (float) $account->initial_real_balance;
+
+        $totalPurchases = (float) $account->movements()
+            ->where('type', CardAccountMovement::TYPE_PURCHASE)
+            ->sum('amount');
+
+        $transferPayments = (float) $account->movements()
+            ->where('type', CardAccountMovement::TYPE_PAYMENT)
+            ->where('payment_method', CardAccountMovement::PAYMENT_METHOD_TRANSFER)
+            ->sum('amount');
+
+        $realDeposits = (float) $account->movements()
+            ->where('type', CardAccountMovement::TYPE_REAL_DEPOSIT)
+            ->sum('amount');
+
+        return round($initial - $totalPurchases + $transferPayments + $realDeposits, 2);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function formatAccountCard(CardAccount $account): array
+    {
+        $totals = $this->totalsForAccount($account);
+        $realBalance = $this->realBalanceForAccount($account);
+        $holderDebt = max(0, $totals['balance']);
+
+        return [
+            'id' => $account->id,
+            'holder_name' => $account->holder_name,
+            'account_holder_name' => $account->account_holder_name ?? $account->holder_name,
+            'bank_type' => $account->bank_type,
+            'account_number' => $account->account_number,
+            'account_number_masked' => $this->maskAccountNumber($account->account_number),
+            'initial_real_balance' => $account->initial_real_balance !== null
+                ? (float) $account->initial_real_balance
+                : null,
+            'initial_real_balance' => $account->initial_real_balance !== null
+                ? (float) $account->initial_real_balance
+                : null,
+            'real_balance' => $realBalance,
+            'real_balance_configured' => $account->initial_real_balance !== null,
+            'holder_debt' => $holderDebt,
+            'holder_debt_label' => '$'.number_format($holderDebt, 2),
+            'real_balance_label' => $realBalance !== null
+                ? '$'.number_format($realBalance, 2)
+                : 'Sin configurar',
+            'opened_at' => $account->created_at?->format('d/m/Y'),
+            'balance' => $totals['balance'],
+            'balance_display' => $this->formatBalanceDisplay($totals['balance'], $account->holder_name),
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -176,6 +342,10 @@ class CardAccountService
             'id' => $movement->id,
             'type' => $movement->type,
             'type_label' => CardAccountMovement::typeLabels()[$movement->type] ?? $movement->type,
+            'payment_method' => $movement->payment_method,
+            'payment_method_label' => $movement->payment_method
+                ? (CardAccountMovement::paymentMethodLabels()[$movement->payment_method] ?? $movement->payment_method)
+                : null,
             'name' => $movement->name,
             'amount' => (float) $movement->amount,
             'amount_label' => '$'.number_format((float) $movement->amount, 2),
@@ -207,7 +377,7 @@ class CardAccountService
 
         if ($balance > 0) {
             return [
-                'label' => "{$holder} debe al equipo",
+                'label' => "{$holder} debe a la tarjeta",
                 'tone' => 'amber',
                 'value' => '$'.number_format($abs, 2),
                 'direction' => 'holder_owes',
@@ -222,12 +392,25 @@ class CardAccountService
         ];
     }
 
-    private function assertMovementBelongsToOpenAccount(CardAccountMovement $movement): void
+    public function maskAccountNumber(?string $number): ?string
     {
-        $account = CardAccount::openAccount();
+        if (! $number) {
+            return null;
+        }
 
+        $digits = preg_replace('/\D/', '', $number);
+
+        if (strlen($digits) <= 4) {
+            return $number;
+        }
+
+        return '**** '.substr($digits, -4);
+    }
+
+    private function assertMovementEditable(CardAccountMovement $movement): void
+    {
         abort_unless(
-            $account && $account->isOpen() && $movement->card_account_id === $account->id,
+            $movement->account?->isOpen(),
             403,
             'La cuenta ya fue liquidada o el movimiento no pertenece a la cuenta activa.',
         );
