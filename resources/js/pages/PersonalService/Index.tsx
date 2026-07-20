@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DateRangeFilter } from '@/components/date-range-filter';
 import { confirmAction } from '@/lib/sweetalert';
 import { formatCurrency, cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
@@ -25,11 +26,17 @@ type ServiceRow = {
     amount: number;
     amount_label: string;
     description: string | null;
+    service_date: string;
+    service_date_formatted: string;
     created_at: string | null;
 };
 
 interface PersonalServiceIndexProps {
-    todayDateFormatted: string;
+    dateFrom: string;
+    dateTo: string;
+    rangeLabel: string;
+    isSingleDay: boolean;
+    isTodayRange: boolean;
     todayEarnings: number;
     sessionEarnings: number;
     totalPersonalServices: number;
@@ -50,7 +57,11 @@ const cardClass =
     'border border-slate-200/80 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626] sm:p-5';
 
 export default function PersonalServiceIndex({
-    todayDateFormatted,
+    dateFrom,
+    dateTo,
+    rangeLabel,
+    isSingleDay,
+    isTodayRange,
     todayEarnings,
     sessionEarnings,
     totalPersonalServices,
@@ -134,6 +145,14 @@ export default function PersonalServiceIndex({
         router.delete(`/mis-servicios/${service.id}`, { preserveScroll: true });
     };
 
+    const applyDateFilter = (from: string, to: string) => {
+        router.get(
+            '/mis-servicios',
+            { from, to },
+            { preserveScroll: true, preserveState: true, replace: true },
+        );
+    };
+
     const netTone =
         netEarnings > 0.01
             ? 'text-emerald-600 dark:text-emerald-400'
@@ -147,26 +166,36 @@ export default function PersonalServiceIndex({
 
             <div className="flex w-full flex-col gap-4">
                 <Card className={cardClass}>
-                    <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sidebar-active/10 text-sidebar-active">
-                            <Briefcase className="h-5 w-5" />
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sidebar-active/10 text-sidebar-active">
+                                <Briefcase className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm text-slate-500">
+                                    {isTodayRange ? 'Servicios propios del día' : 'Servicios del periodo'}
+                                </p>
+                                <p className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
+                                    {rangeLabel}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Fuera de la empresa. Todo el monto es tuyo, sin comisión.
+                                </p>
+                            </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm text-slate-500">Servicios propios del día</p>
-                            <p className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
-                                {todayDateFormatted}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                                Fuera de la empresa. Todo el monto es tuyo, sin comisión.
-                            </p>
-                        </div>
+                        <DateRangeFilter
+                            dateFrom={dateFrom}
+                            dateTo={dateTo}
+                            onChange={applyDateFilter}
+                            idPrefix="servicios"
+                        />
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <div className="rounded-xl bg-violet-50 px-3 py-3 dark:bg-violet-950/30">
                             <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-violet-700 dark:text-violet-400">
                                 <Briefcase className="h-3.5 w-3.5" />
-                                Mis servicios hoy
+                                Mis servicios{isTodayRange ? ' hoy' : ''}
                             </div>
                             <p className="mt-1 text-xl font-bold text-violet-600 dark:text-violet-400">
                                 ${formatCurrency(totalPersonalServices)}
@@ -175,7 +204,7 @@ export default function PersonalServiceIndex({
                         <div className="rounded-xl bg-emerald-50 px-3 py-3 dark:bg-emerald-950/30">
                             <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
                                 <TrendingUp className="h-3.5 w-3.5" />
-                                Ganancias del día
+                                Ganancias{isTodayRange ? ' del día' : ''}
                             </div>
                             <p className="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400">
                                 ${formatCurrency(todayEarnings)}
@@ -190,7 +219,7 @@ export default function PersonalServiceIndex({
                         <div className="rounded-xl bg-rose-50 px-3 py-3 dark:bg-rose-950/30">
                             <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-rose-700 dark:text-rose-400">
                                 <TrendingDown className="h-3.5 w-3.5" />
-                                Gastos del día
+                                Gastos{isTodayRange ? ' del día' : ''}
                             </div>
                             <p className="mt-1 text-xl font-bold text-rose-600 dark:text-rose-400">
                                 ${formatCurrency(totalExpenses)}
@@ -223,15 +252,22 @@ export default function PersonalServiceIndex({
                 </Card>
 
                 <Card className={cardClass}>
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                        Servicios de hoy
-                    </h2>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                            {isTodayRange ? 'Servicios de hoy' : 'Servicios del periodo'}
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                            {services.length} registro{services.length !== 1 ? 's' : ''}
+                        </p>
+                    </div>
 
                     {services.length === 0 ? (
                         <p className="mt-4 rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-[#3a3a3a]">
-                            {hasSessionToday
-                                ? 'Aún no registras servicios propios hoy.'
-                                : 'Registra tus servicios personales del día.'}
+                            {isTodayRange
+                                ? hasSessionToday
+                                    ? 'Aún no registras servicios propios hoy.'
+                                    : 'Registra tus servicios personales del día.'
+                                : 'Sin servicios en este rango de fechas.'}
                         </p>
                     ) : (
                         <ul className="mt-4 space-y-2">
@@ -247,6 +283,11 @@ export default function PersonalServiceIndex({
                                         {service.description && (
                                             <p className="mt-0.5 text-xs text-slate-500">
                                                 {service.description}
+                                            </p>
+                                        )}
+                                        {!isSingleDay && (
+                                            <p className="mt-0.5 text-[10px] text-slate-400">
+                                                {service.service_date_formatted}
                                             </p>
                                         )}
                                         {service.created_at && (

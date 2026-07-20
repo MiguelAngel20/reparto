@@ -131,6 +131,14 @@ Route::middleware('auth')->group(function () {
             Route::delete('/jornada/{session}', [RepartoController::class, 'destroySession'])->name('session.destroy');
             Route::put('/jornada/{session}/pedidos/{order}', [RepartoController::class, 'updateSessionEntry'])->name('session.entries.update');
             Route::delete('/jornada/{session}/pedidos/{order}', [RepartoController::class, 'destroySessionEntry'])->name('session.entries.destroy');
+            Route::middleware('section:'.UserSection::GASTO.',edit')->group(function () {
+                Route::put('/jornada/{session}/gastos/{expense}', [RepartoController::class, 'updateSessionExpense'])->name('session.expenses.update');
+                Route::delete('/jornada/{session}/gastos/{expense}', [RepartoController::class, 'destroySessionExpense'])->name('session.expenses.destroy');
+            });
+            Route::middleware('section:'.UserSection::PERSONAL_SERVICE.',edit')->group(function () {
+                Route::put('/jornada/{session}/servicios-propios/{service}', [RepartoController::class, 'updateSessionPersonalService'])->name('session.personal-services.update');
+                Route::delete('/jornada/{session}/servicios-propios/{service}', [RepartoController::class, 'destroySessionPersonalService'])->name('session.personal-services.destroy');
+            });
             Route::post('/pedidos/iniciar', [DeliveryOrderController::class, 'start'])->name('orders.start');
             Route::put('/pedidos/{order}', [DeliveryOrderController::class, 'update'])->name('orders.update');
             Route::put('/pedidos/{order}/actualizar', [DeliveryOrderController::class, 'updateCompleted'])->name('orders.update-completed');

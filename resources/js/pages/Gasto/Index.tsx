@@ -10,12 +10,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DateRangeFilter } from '@/components/date-range-filter';
 import { confirmAction } from '@/lib/sweetalert';
 import { formatCurrency, cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useSectionAccess } from '@/hooks/useSectionAccess';
-import { Pencil, Receipt, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { Pencil, Plus, Receipt, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -25,11 +26,17 @@ type ExpenseRow = {
     amount: number;
     amount_label: string;
     concept: string | null;
+    expense_date: string;
+    expense_date_formatted: string;
     created_at: string | null;
 };
 
 interface GastoIndexProps {
-    todayDateFormatted: string;
+    dateFrom: string;
+    dateTo: string;
+    rangeLabel: string;
+    isSingleDay: boolean;
+    isTodayRange: boolean;
     todayEarnings: number;
     totalExpenses: number;
     netEarnings: number;
@@ -48,7 +55,11 @@ const cardClass =
     'border border-slate-200/80 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626] sm:p-5';
 
 export default function GastoIndex({
-    todayDateFormatted,
+    dateFrom,
+    dateTo,
+    rangeLabel,
+    isSingleDay,
+    isTodayRange,
     todayEarnings,
     totalExpenses,
     netEarnings,
@@ -74,6 +85,7 @@ export default function GastoIndex({
     });
 
     const [editingExpense, setEditingExpense] = useState<ExpenseRow | null>(null);
+    const [expenseModalOpen, setExpenseModalOpen] = useState(false);
 
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
@@ -84,7 +96,10 @@ export default function GastoIndex({
         e.preventDefault();
         expenseForm.post('/gasto', {
             preserveScroll: true,
-            onSuccess: () => expenseForm.reset(),
+            onSuccess: () => {
+                expenseForm.reset();
+                setExpenseModalOpen(false);
+            },
         });
     };
 
@@ -127,6 +142,14 @@ export default function GastoIndex({
         });
     };
 
+    const applyDateFilter = (from: string, to: string) => {
+        router.get(
+            '/gasto',
+            { from, to },
+            { preserveScroll: true, preserveState: true, replace: true },
+        );
+    };
+
     const netTone =
         netEarnings > 0.01
             ? 'text-emerald-600 dark:text-emerald-400'
@@ -140,30 +163,42 @@ export default function GastoIndex({
 
             <div className="flex w-full flex-col gap-4">
                 <Card className={cardClass}>
-                    <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sidebar-active/10 text-sidebar-active">
-                            <Wallet className="h-5 w-5" />
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sidebar-active/10 text-sidebar-active">
+                                <Wallet className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm text-slate-500">
+                                    {isTodayRange ? 'Resumen del día' : 'Resumen del periodo'}
+                                </p>
+                                <p className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
+                                    {rangeLabel}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    {hasOpenLiveSession
+                                        ? 'Tus ganancias se actualizan solas mientras repartes.'
+                                        : hasSessionToday
+                                          ? `${completedOrdersToday} pedido${completedOrdersToday !== 1 ? 's' : ''} completado${completedOrdersToday !== 1 ? 's' : ''} en el periodo.`
+                                          : isTodayRange
+                                            ? 'Aún no hay jornada hoy. Puedes registrar gastos del día.'
+                                            : 'Ganancias y gastos del rango seleccionado.'}
+                                </p>
+                            </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm text-slate-500">Resumen del día</p>
-                            <p className="mt-0.5 text-lg font-semibold text-slate-900 dark:text-white">
-                                {todayDateFormatted}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                                {hasOpenLiveSession
-                                    ? 'Tus ganancias se actualizan solas mientras repartes.'
-                                    : hasSessionToday
-                                      ? `${completedOrdersToday} pedido${completedOrdersToday !== 1 ? 's' : ''} completado${completedOrdersToday !== 1 ? 's' : ''} hoy.`
-                                      : 'Aún no hay jornada hoy. Puedes registrar gastos del día.'}
-                            </p>
-                        </div>
+                        <DateRangeFilter
+                            dateFrom={dateFrom}
+                            dateTo={dateTo}
+                            onChange={applyDateFilter}
+                            idPrefix="gasto"
+                        />
                     </div>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
                         <div className="rounded-xl bg-emerald-50 px-3 py-3 dark:bg-emerald-950/30">
                             <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">
                                 <TrendingUp className="h-3.5 w-3.5" />
-                                Ganancias del día
+                                Ganancias{isTodayRange ? ' del día' : ''}
                             </div>
                             <p className="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400">
                                 ${formatCurrency(todayEarnings)}
@@ -173,7 +208,7 @@ export default function GastoIndex({
                         <div className="rounded-xl bg-rose-50 px-3 py-3 dark:bg-rose-950/30">
                             <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase text-rose-700 dark:text-rose-400">
                                 <TrendingDown className="h-3.5 w-3.5" />
-                                Gastos del día
+                                Gastos{isTodayRange ? ' del día' : ''}
                             </div>
                             <p className="mt-1 text-xl font-bold text-rose-600 dark:text-rose-400">
                                 ${formatCurrency(totalExpenses)}
@@ -193,84 +228,46 @@ export default function GastoIndex({
                             </p>
                         </div>
                     </div>
-                </Card>
 
-                {canEdit && (
-                <Card className={cardClass}>
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                        Registrar gasto
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Captura lo que gastas hoy para ver cuánto te queda de tus ganancias.
-                    </p>
-
-                    <form onSubmit={submitExpense} noValidate className="mt-4 space-y-4">
-                        <div>
-                            <Label htmlFor="expense_name" className="mb-1 block text-xs text-slate-500">
-                                Nombre del gasto
-                            </Label>
-                            <Input
-                                id="expense_name"
-                                value={expenseForm.data.name}
-                                onChange={(e) => expenseForm.setData('name', e.target.value)}
-                                placeholder="Ej. Gasolina, comida, casetas"
-                                className={cn(expenseForm.errors.name && 'border-rose-500')}
-                            />
-                            {expenseForm.errors.name && (
-                                <p className="mt-1 text-xs text-rose-600">{expenseForm.errors.name}</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label htmlFor="expense_amount" className="mb-1 block text-xs text-slate-500">
-                                Cantidad ($)
-                            </Label>
-                            <Input
-                                id="expense_amount"
-                                type="number"
-                                min={0.01}
-                                step="0.01"
-                                value={expenseForm.data.amount}
-                                onChange={(e) => expenseForm.setData('amount', e.target.value)}
-                                placeholder="0.00"
-                                className={cn(expenseForm.errors.amount && 'border-rose-500')}
-                            />
-                            {expenseForm.errors.amount && (
-                                <p className="mt-1 text-xs text-rose-600">{expenseForm.errors.amount}</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label htmlFor="expense_concept" className="mb-1 block text-xs text-slate-500">
-                                Concepto (opcional)
-                            </Label>
-                            <Input
-                                id="expense_concept"
-                                value={expenseForm.data.concept}
-                                onChange={(e) => expenseForm.setData('concept', e.target.value)}
-                                placeholder="Detalle adicional del gasto"
-                            />
-                        </div>
-
+                    {canEdit && (
                         <button
-                            type="submit"
-                            disabled={expenseForm.processing}
-                            className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-sidebar-active text-sm font-semibold text-white disabled:opacity-50 sm:w-auto sm:px-6"
+                            type="button"
+                            onClick={() => setExpenseModalOpen(true)}
+                            className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-sidebar-active text-sm font-semibold text-white hover:opacity-90 sm:w-auto sm:px-6"
                         >
-                            {expenseForm.processing ? 'Guardando...' : 'Agregar gasto'}
+                            <Plus className="h-4 w-4" />
+                            Agregar gasto
                         </button>
-                    </form>
+                    )}
                 </Card>
-                )}
 
                 <Card className={cardClass}>
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                        Gastos de hoy
-                    </h2>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                            {isTodayRange ? 'Gastos de hoy' : 'Gastos del periodo'}
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                            {expenses.length} registro{expenses.length !== 1 ? 's' : ''}
+                        </p>
+                    </div>
 
                     {expenses.length === 0 ? (
                         <p className="mt-4 rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-[#3a3a3a]">
-                            Aún no registras gastos hoy.
+                            {isTodayRange
+                                ? 'Aún no registras gastos hoy.'
+                                : 'Sin gastos en este rango de fechas.'}
+                            {canEdit && (
+                                <>
+                                    {' '}
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpenseModalOpen(true)}
+                                        className="font-medium text-sidebar-active hover:underline"
+                                    >
+                                        Agregar uno
+                                    </button>
+                                </>
+                            )}
                         </p>
                     ) : (
                         <ul className="mt-4 space-y-2">
@@ -285,6 +282,11 @@ export default function GastoIndex({
                                         </p>
                                         {expense.concept && (
                                             <p className="mt-0.5 text-xs text-slate-500">{expense.concept}</p>
+                                        )}
+                                        {!isSingleDay && (
+                                            <p className="mt-0.5 text-[10px] text-slate-400">
+                                                {expense.expense_date_formatted}
+                                            </p>
                                         )}
                                         {expense.created_at && (
                                             <p className="mt-1 text-[10px] text-slate-400">
@@ -322,6 +324,117 @@ export default function GastoIndex({
                         </ul>
                     )}
                 </Card>
+
+                {canEdit && (
+                    <Dialog
+                        open={expenseModalOpen}
+                        onOpenChange={(open) => {
+                            setExpenseModalOpen(open);
+                            if (!open) {
+                                expenseForm.reset();
+                                expenseForm.clearErrors();
+                            }
+                        }}
+                    >
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Agregar gasto del día</DialogTitle>
+                                <DialogDescription>
+                                    Registra lo que gastas hoy. Se restará de tus ganancias del día.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <form onSubmit={submitExpense} noValidate className="space-y-4">
+                                <div>
+                                    <Label
+                                        htmlFor="expense_name"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        Nombre del gasto
+                                    </Label>
+                                    <Input
+                                        id="expense_name"
+                                        value={expenseForm.data.name}
+                                        onChange={(e) =>
+                                            expenseForm.setData('name', e.target.value)
+                                        }
+                                        placeholder="Ej. Gasolina, comida, casetas"
+                                        className={cn(
+                                            expenseForm.errors.name && 'border-rose-500',
+                                        )}
+                                    />
+                                    {expenseForm.errors.name && (
+                                        <p className="mt-1 text-xs text-rose-600">
+                                            {expenseForm.errors.name}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <Label
+                                        htmlFor="expense_amount"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        Cantidad ($)
+                                    </Label>
+                                    <Input
+                                        id="expense_amount"
+                                        type="number"
+                                        min={0.01}
+                                        step="0.01"
+                                        value={expenseForm.data.amount}
+                                        onChange={(e) =>
+                                            expenseForm.setData('amount', e.target.value)
+                                        }
+                                        placeholder="0.00"
+                                        className={cn(
+                                            expenseForm.errors.amount && 'border-rose-500',
+                                        )}
+                                    />
+                                    {expenseForm.errors.amount && (
+                                        <p className="mt-1 text-xs text-rose-600">
+                                            {expenseForm.errors.amount}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <Label
+                                        htmlFor="expense_concept"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        Concepto (opcional)
+                                    </Label>
+                                    <Input
+                                        id="expense_concept"
+                                        value={expenseForm.data.concept}
+                                        onChange={(e) =>
+                                            expenseForm.setData('concept', e.target.value)
+                                        }
+                                        placeholder="Detalle adicional del gasto"
+                                    />
+                                </div>
+
+                                <DialogFooter className="gap-2 sm:gap-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpenseModalOpen(false)}
+                                        className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={expenseForm.processing}
+                                        className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                    >
+                                        {expenseForm.processing ? 'Guardando...' : 'Guardar gasto'}
+                                    </button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                )}
 
                 <Dialog
                     open={editingExpense !== null}

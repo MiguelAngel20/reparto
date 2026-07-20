@@ -16,6 +16,14 @@ class FinalizePersonalServiceSessionRequest extends FormRequest
         if ($this->input('spent_amount') === '' || $this->input('spent_amount') === null) {
             $this->merge(['spent_amount' => null]);
         }
+
+        if ($this->has('items') && is_array($this->input('items'))) {
+            $items = array_values(array_filter(
+                $this->input('items'),
+                fn ($item) => trim((string) ($item['description'] ?? '')) !== '',
+            ));
+            $this->merge(['items' => $items]);
+        }
     }
 
     public function rules(): array
@@ -25,6 +33,10 @@ class FinalizePersonalServiceSessionRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'spent_amount' => ['nullable', 'numeric', 'min:0'],
             'description' => ['nullable', 'string', 'max:500'],
+            'items' => ['nullable', 'array'],
+            'items.*.description' => ['required_with:items', 'string', 'max:255'],
+            'items.*.price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.is_completed' => ['nullable', 'boolean'],
         ];
     }
 

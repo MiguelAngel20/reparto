@@ -2,23 +2,44 @@ import AppLayout from '@/layouts/app-layout';
 import { Card } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { calculatePurchaseCharge, formatDuration } from '@/lib/delivery-commission';
+import { calculatePurchaseCharge, formatDuration, sumListPrices } from '@/lib/delivery-commission';
 import {
     confirmAction,
     confirmCancelPersonalService,
 } from '@/lib/sweetalert';
+import {
+    clearPersonalServiceDraft,
+    draftHasContent,
+    draftToFormData,
+    inferListOpenFromDraft,
+    loadPersonalServiceDraft,
+    savePersonalServiceDraft,
+    serviceToFormDraft,
+} from '@/lib/reparto-personal-service-draft';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useElapsedTime } from '@/hooks/use-elapsed-time';
 import {
     ActivePersonalServicesBar,
     type ActivePersonalServiceSummary,
 } from '@/components/reparto/active-personal-services-bar';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useSectionAccess } from '@/hooks/useSectionAccess';
-import { Briefcase, CheckCircle2, Clock } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { CheckCircle2, ChevronDown, Clock, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+
+type ServiceItem = {
+    id?: number;
+    description: string;
+    price: number;
+    is_completed: boolean;
+};
 
 type ServiceData = {
     id: number;
@@ -28,6 +49,13 @@ type ServiceData = {
     client_charge: number;
     description: string | null;
     started_at: string | null;
+    items: ServiceItem[];
+};
+
+type ListItem = {
+    description: string;
+    price: string;
+    is_completed: boolean;
 };
 
 interface ShowPersonalServiceProps {
@@ -57,25 +85,110 @@ function ShowPersonalServicePage({
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const elapsed = useElapsedTime(service.started_at);
 
-    const form = useForm({
-        name: service.name,
-        amount: String(service.amount),
-        spent_amount:
-            service.spent_amount !== null ? String(service.spent_amount) : '',
-        description: service.description ?? '',
-    });
+    const loadedDraft = useRef(loadPersonalServiceDraft(service.id)).current;
+    const savedDraft =
+        loadedDraft && draftHasContent(loadedDraft) ? loadedDraft : null;
+    const serverDraft = serviceToFormDraft(service);
+
+    const [listOpen, setListOpen] = useState(() =>
+        savedDraft ? inferListOpenFromDraft(savedDraft, service) : serverDraft.list_open,
+    );
+
+    const form = useForm(
+        savedDraft ? draftToFormData(savedDraft) : draftToFormData(serverDraft),
+    );
 
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
         if (flash?.error) toast.error(flash.error);
     }, [flash?.success, flash?.error]);
 
-    const serviceAmount = parseFloat(form.data.amount) || 0;
-    const spentAmount = parseFloat(form.data.spent_amount) || 0;
-    const clientCharge = useMemo(
-        () => calculatePurchaseCharge(spentAmount, serviceAmount),
-        [spentAmount, serviceAmount],
+    const buildLocalDraft = useCallback(
+        () => ({
+            name: form.data.name,
+            amount: form.data.amount,
+            spent_amount: form.data.spent_amount,
+            description: form.data.description,
+            items: form.data.items,
+            list_open: listOpen,
+        }),
+        [form.data, listOpen],
     );
+
+    const buildLocalDraftRef = useRef(buildLocalDraft);
+    buildLocalDraftRef.current = buildLocalDraft;
+
+    useEffect(() => {
+        const serviceId = service.id;
+        const timer = window.setTimeout(() => {
+            const draft = buildLocalDraftRef.current();
+            if (draftHasContent(draft)) {
+                savePersonalServiceDraft(serviceId, draft);
+            }
+        }, 200);
+
+        return () => {
+            window.clearTimeout(timer);
+            const draft = buildLocalDraftRef.current();
+            if (draftHasContent(draft)) {
+                savePersonalServiceDraft(serviceId, draft);
+            }
+        };
+    }, [service.id, buildLocalDraft]);
+
+    const serviceAmount = parseFloat(form.data.amount) || 0;
+    const listTotal = useMemo(
+        () => sumListPrices(form.data.items),
+        [form.data.items],
+    );
+    const hasListPrices = form.data.items.some((item) => parseFloat(item.price) > 0);
+    const purchaseAmount = useMemo(() => {
+        if (hasListPrices) {
+            return listTotal;
+        }
+
+        return parseFloat(form.data.spent_amount) || 0;
+    }, [form.data.spent_amount, hasListPrices, listTotal]);
+    const clientCharge = useMemo(
+        () => calculatePurchaseCharge(purchaseAmount, serviceAmount),
+        [purchaseAmount, serviceAmount],
+    );
+
+    const syncSpentAmountFromList = (items: ListItem[]) => {
+        const total = sumListPrices(items);
+        if (items.some((item) => parseFloat(item.price) > 0)) {
+            form.setData('spent_amount', total > 0 ? String(total) : '');
+        }
+    };
+
+    const addListItem = () => {
+        const items = [
+            ...form.data.items,
+            { description: '', price: '', is_completed: false },
+        ];
+        form.setData('items', items);
+    };
+
+    const updateListItem = (
+        index: number,
+        field: keyof ListItem,
+        value: string | boolean,
+    ) => {
+        const items = [...form.data.items];
+        items[index] = { ...items[index], [field]: value };
+        form.setData('items', items);
+
+        if (field === 'price') {
+            syncSpentAmountFromList(items);
+            clearField('spent_amount');
+        }
+    };
+
+    const removeListItem = (index: number) => {
+        const items = form.data.items.filter((_, itemIndex) => itemIndex !== index);
+        form.setData('items', items);
+        syncSpentAmountFromList(items);
+    };
 
     const clearField = (field: 'name' | 'amount' | 'spent_amount') => {
         if (form.errors[field]) {
@@ -95,7 +208,7 @@ function ShowPersonalServicePage({
             errors.amount = 'Indica el monto del servicio.';
         }
 
-        if (form.data.spent_amount !== '' && spentAmount < 0) {
+        if (form.data.spent_amount !== '' && purchaseAmount < 0) {
             errors.spent_amount = 'El monto gastado no puede ser negativo.';
         }
 
@@ -111,12 +224,17 @@ function ShowPersonalServicePage({
         return true;
     };
 
-    const buildPayload = () => ({
-        name: form.data.name.trim(),
-        amount: form.data.amount,
-        spent_amount: form.data.spent_amount !== '' ? form.data.spent_amount : '',
-        description: form.data.description.trim() || '',
-    });
+    const buildPayload = () => {
+        const spent = hasListPrices ? listTotal : parseFloat(form.data.spent_amount) || 0;
+
+        return {
+            name: form.data.name.trim(),
+            amount: form.data.amount,
+            spent_amount: spent > 0 ? String(spent) : '',
+            description: form.data.description.trim() || '',
+            items: form.data.items.filter((item) => item.description.trim() !== ''),
+        };
+    };
 
     const finalizeService = async () => {
         if (!validateForm()) return;
@@ -131,6 +249,7 @@ function ShowPersonalServicePage({
 
         form.transform(() => buildPayload());
         form.post(`/reparto/servicios-propios/${service.id}/finalizar`, {
+            onSuccess: () => clearPersonalServiceDraft(service.id),
             onError: (errors: Record<string, string>) => {
                 const first = Object.values(errors).find(
                     (msg) => typeof msg === 'string',
@@ -146,7 +265,9 @@ function ShowPersonalServicePage({
         const confirmed = await confirmCancelPersonalService();
         if (!confirmed) return;
 
-        form.post(`/reparto/servicios-propios/${service.id}/cancelar`);
+        form.post(`/reparto/servicios-propios/${service.id}/cancelar`, {
+            onSuccess: () => clearPersonalServiceDraft(service.id),
+        });
     };
 
     return (
@@ -233,26 +354,31 @@ function ShowPersonalServicePage({
                                 )}
                             </div>
                             <div>
-                                <Label
-                                    htmlFor="spent_amount"
-                                    className="mb-1 block text-xs text-slate-500"
-                                >
+                                <Label className="mb-1 block text-xs text-slate-500">
                                     Monto gastado ($){' '}
-                                    <span className="font-normal">opc.</span>
+                                    {!hasListPrices && (
+                                        <span className="font-normal">opc.</span>
+                                    )}
                                 </Label>
-                                <Input
-                                    id="spent_amount"
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    placeholder="0"
-                                    value={form.data.spent_amount}
-                                    onChange={(e) => {
-                                        form.setData('spent_amount', e.target.value);
-                                        clearField('spent_amount');
-                                    }}
-                                    className={cn(form.errors.spent_amount && 'border-rose-500')}
-                                />
+                                {hasListPrices ? (
+                                    <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-semibold tabular-nums dark:border-[#3a3a3a] dark:bg-[#1f1f1f]">
+                                        ${formatCurrency(listTotal)}
+                                    </div>
+                                ) : (
+                                    <Input
+                                        id="spent_amount"
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        placeholder="0"
+                                        value={form.data.spent_amount}
+                                        onChange={(e) => {
+                                            form.setData('spent_amount', e.target.value);
+                                            clearField('spent_amount');
+                                        }}
+                                        className={cn(form.errors.spent_amount && 'border-rose-500')}
+                                    />
+                                )}
                                 {form.errors.spent_amount && (
                                     <p className="mt-1 text-xs text-rose-600">
                                         {form.errors.spent_amount}
@@ -260,6 +386,64 @@ function ShowPersonalServicePage({
                                 )}
                             </div>
                         </div>
+
+                        <Collapsible open={listOpen} onOpenChange={setListOpen}>
+                            <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium dark:border-[#3a3a3a]">
+                                Desglose compra
+                                <ChevronDown
+                                    className={cn(
+                                        'h-4 w-4 transition-transform',
+                                        listOpen && 'rotate-180',
+                                    )}
+                                />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-2 pt-2">
+                                {form.data.items.map((item, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <Input
+                                            value={item.description}
+                                            onChange={(e) =>
+                                                updateListItem(
+                                                    index,
+                                                    'description',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="Producto"
+                                            className="min-w-0 flex-1"
+                                        />
+                                        <Input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={item.price}
+                                            onChange={(e) =>
+                                                updateListItem(index, 'price', e.target.value)
+                                            }
+                                            className="w-24"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => removeListItem(index)}
+                                            className="shrink-0 p-2 text-rose-500"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        addListItem();
+                                        setListOpen(true);
+                                    }}
+                                    className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed py-2 text-sm text-slate-600 dark:border-[#3a3a3a]"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Agregar
+                                </button>
+                            </CollapsibleContent>
+                        </Collapsible>
 
                         <div>
                             <Label
@@ -292,9 +476,9 @@ function ShowPersonalServicePage({
                             ${formatCurrency(clientCharge)}
                         </span>
                     </div>
-                    {spentAmount > 0 && serviceAmount > 0 && (
+                    {purchaseAmount > 0 && serviceAmount > 0 && (
                         <p className="mt-1 text-center text-xs text-slate-500 max-[499px]:text-[10px]">
-                            ${formatCurrency(spentAmount)} + ${formatCurrency(serviceAmount)} = $
+                            ${formatCurrency(purchaseAmount)} + ${formatCurrency(serviceAmount)} = $
                             {formatCurrency(clientCharge)}
                         </p>
                     )}

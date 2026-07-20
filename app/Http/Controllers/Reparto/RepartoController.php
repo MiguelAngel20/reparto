@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Reparto;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Gasto\UpdateDailyExpenseRequest;
+use App\Http\Requests\PersonalService\UpdatePersonalServiceRequest;
 use App\Http\Requests\Reparto\StoreManualCaptureEntryRequest;
 use App\Models\CashSession;
 use App\Models\DailyExpense;
@@ -74,19 +76,14 @@ class RepartoController extends Controller
                 ->values()
                 ->all();
 
-            $sessionPersonalServices = PersonalService::query()
-                ->where('user_id', $user->id)
-                ->whereDate('service_date', $today)
-                ->completed()
+            $sessionPersonalServices = DailyEarningsHelper::personalServicesQueryForSession($openSession)
                 ->latest()
                 ->get()
                 ->map(fn (PersonalService $service) => $this->formatSessionPersonalServiceRow($service))
                 ->values()
                 ->all();
 
-            $sessionExpenses = DailyExpense::query()
-                ->where('user_id', $user->id)
-                ->whereDate('expense_date', $today)
+            $sessionExpenses = DailyEarningsHelper::expensesQueryForSession($openSession)
                 ->latest()
                 ->get()
                 ->map(fn (DailyExpense $expense) => $this->formatSessionExpenseRow($expense))
@@ -94,7 +91,9 @@ class RepartoController extends Controller
                 ->all();
         }
 
-        $daySummary = DailyEarningsHelper::daySummaryForUser($user->id, $today);
+        $daySummary = $openSession
+            ? DailyEarningsHelper::daySummaryForSession($openSession)
+            : DailyEarningsHelper::daySummaryForUser($user->id, $today);
 
         $activeOrders = DeliveryOrder::activeOrdersForUser($user->id)
             ->map(fn ($order) => $this->formatActiveOrderSummary($order))
@@ -114,8 +113,11 @@ class RepartoController extends Controller
             'activeOrders' => $activeOrders,
             'activePersonalServices' => $activePersonalServices,
             'recentSessions' => $recentSessions,
-            'canStartJornadaToday' => ! CashSession::dayRegisteredForUser($user->id, $today),
+            'canStartJornadaToday' => $openSession === null && ! CashSession::dayRegisteredForUser($user->id, $today),
             'todayDateFormatted' => now()->format('d/m/Y'),
+            'sessionDateFormatted' => $openSession
+                ? $this->formatDateOnly($openSession->businessDate())
+                : null,
             'todayBlockedMessage' => CashSession::dayRegisteredLabelForUser($user->id, $today),
             'userPercentage' => (float) $user->percentage,
             'companyName' => $user->company_name ?? 'Clikio',
@@ -157,6 +159,81 @@ class RepartoController extends Controller
         return redirect()
             ->route('reparto.session.edit', $session)
             ->with('success', 'Pedido actualizado.');
+    }
+
+    public function updateSessionExpense(
+        UpdateDailyExpenseRequest $request,
+        CashSession $session,
+        DailyExpense $expense,
+    ): RedirectResponse {
+        $this->assertEditableSession($request, $session);
+        abort_unless($session->isLive(), 403);
+        $this->assertExpenseBelongsToSession($expense, $session);
+
+        $expense->update([
+            'name' => trim($request->validated('name')),
+            'amount' => round((float) $request->validated('amount'), 2),
+            'concept' => $request->validated('concept'),
+        ]);
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Gasto actualizado.');
+    }
+
+    public function destroySessionExpense(
+        Request $request,
+        CashSession $session,
+        DailyExpense $expense,
+    ): RedirectResponse {
+        $this->assertEditableSession($request, $session);
+        abort_unless($session->isLive(), 403);
+        $this->assertExpenseBelongsToSession($expense, $session);
+
+        $expense->delete();
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Gasto eliminado.');
+    }
+
+    public function updateSessionPersonalService(
+        UpdatePersonalServiceRequest $request,
+        CashSession $session,
+        PersonalService $service,
+    ): RedirectResponse {
+        $this->assertEditableSession($request, $session);
+        abort_unless($session->isLive(), 403);
+        $this->assertPersonalServiceBelongsToSession($service, $session);
+
+        $spent = $request->validated('spent_amount');
+
+        $service->update([
+            'name' => trim($request->validated('name')),
+            'amount' => round((float) $request->validated('amount'), 2),
+            'spent_amount' => $spent !== null ? round((float) $spent, 2) : null,
+            'description' => $request->validated('description'),
+        ]);
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Servicio propio actualizado.');
+    }
+
+    public function destroySessionPersonalService(
+        Request $request,
+        CashSession $session,
+        PersonalService $service,
+    ): RedirectResponse {
+        $this->assertEditableSession($request, $session);
+        abort_unless($session->isLive(), 403);
+        $this->assertPersonalServiceBelongsToSession($service, $session);
+
+        $service->delete();
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Servicio propio eliminado.');
     }
 
     public function destroySessionEntry(

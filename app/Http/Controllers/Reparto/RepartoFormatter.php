@@ -240,6 +240,32 @@ trait RepartoFormatter
         ];
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function sessionPersonalServicesPayload(CashSession $session): array
+    {
+        return DailyEarningsHelper::personalServicesQueryForSession($session)
+            ->latest()
+            ->get()
+            ->map(fn (PersonalService $service) => $this->formatSessionPersonalServiceRow($service))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function sessionExpensesPayload(CashSession $session): array
+    {
+        return DailyEarningsHelper::expensesQueryForSession($session)
+            ->latest()
+            ->get()
+            ->map(fn (DailyExpense $expense) => $this->formatSessionExpenseRow($expense))
+            ->values()
+            ->all();
+    }
+
     protected function formatSessionWithSummary(CashSession $session, ?int $userId = null): array
     {
         $summary = CashSessionSummary::forSession($session);
@@ -269,9 +295,11 @@ trait RepartoFormatter
             ],
         );
 
-        if ($userId !== null && ! empty($data['capture_date'])) {
-            $day = DailyEarningsHelper::daySummaryForUser($userId, $data['capture_date']);
+        if ($userId !== null) {
+            $day = DailyEarningsHelper::daySummaryForSession($session);
             $data['net_earnings'] = $day['net_earnings'];
+            $data['personal_services_total'] = $day['personal_services'];
+            $data['total_expenses'] = $day['total_expenses'];
         }
 
         return $data;
@@ -358,6 +386,8 @@ trait RepartoFormatter
         return Inertia::render('Reparto/SessionShow', [
             'session' => $sessionData,
             'orders' => $orders,
+            'personalServices' => $this->sessionPersonalServicesPayload($session),
+            'expenses' => $this->sessionExpensesPayload($session),
             'companyName' => $user->company_name ?? 'Clikio',
             'backUrl' => $backUrl,
             'backLabel' => $backLabel,
@@ -404,6 +434,8 @@ trait RepartoFormatter
         return Inertia::render('Reparto/SessionEdit', [
             'session' => $sessionData,
             'entries' => $entries,
+            'personalServices' => $this->sessionPersonalServicesPayload($session),
+            'expenses' => $this->sessionExpensesPayload($session),
             'companyName' => $user->company_name ?? 'Clikio',
             'userPercentage' => (float) $user->percentage,
             'backUrl' => route('reparto.index'),

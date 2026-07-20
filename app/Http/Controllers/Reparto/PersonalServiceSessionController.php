@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Reparto\FinalizePersonalServiceSessionRequest;
 use App\Models\CashSession;
 use App\Models\PersonalService;
+use App\Models\PersonalServiceItem;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -121,9 +122,28 @@ class PersonalServiceSessionController extends Controller
 
     protected function applyServiceData(PersonalService $service, array $validated): void
     {
-        $spent = array_key_exists('spent_amount', $validated) && $validated['spent_amount'] !== null
-            ? round((float) $validated['spent_amount'], 2)
-            : null;
+        $spent = null;
+
+        if (array_key_exists('items', $validated) && is_array($validated['items'])) {
+            $this->syncServiceItems($service, $validated['items']);
+
+            $total = 0.0;
+            foreach ($validated['items'] as $item) {
+                if (empty(trim($item['description'] ?? ''))) {
+                    continue;
+                }
+
+                $total += (float) ($item['price'] ?? 0);
+            }
+
+            $spent = $total > 0 ? round($total, 2) : null;
+        } else {
+            $service->items()->delete();
+
+            $spent = array_key_exists('spent_amount', $validated) && $validated['spent_amount'] !== null
+                ? round((float) $validated['spent_amount'], 2)
+                : null;
+        }
 
         $service->update([
             'name' => trim($validated['name']),
@@ -131,6 +151,28 @@ class PersonalServiceSessionController extends Controller
             'spent_amount' => $spent,
             'description' => $validated['description'] ?? null,
         ]);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $items
+     */
+    protected function syncServiceItems(PersonalService $service, array $items): void
+    {
+        $service->items()->delete();
+
+        foreach ($items as $index => $item) {
+            if (empty(trim($item['description'] ?? ''))) {
+                continue;
+            }
+
+            PersonalServiceItem::query()->create([
+                'personal_service_id' => $service->id,
+                'description' => trim($item['description']),
+                'price' => $item['price'] ?? 0,
+                'is_completed' => (bool) ($item['is_completed'] ?? false),
+                'sort_order' => $index,
+            ]);
+        }
     }
 
     protected function authorizeService(Request $request, PersonalService $service): void
@@ -161,6 +203,8 @@ class PersonalServiceSessionController extends Controller
      */
     protected function formatService(PersonalService $service): array
     {
+        $service->load('items');
+
         return [
             'id' => $service->id,
             'name' => $service->name,
@@ -169,6 +213,12 @@ class PersonalServiceSessionController extends Controller
             'client_charge' => $service->clientCharge(),
             'description' => $service->description,
             'started_at' => $service->started_at?->toIso8601String(),
+            'items' => $service->items->map(fn (PersonalServiceItem $item) => [
+                'id' => $item->id,
+                'description' => $item->description,
+                'price' => (float) $item->price,
+                'is_completed' => (bool) $item->is_completed,
+            ])->values()->all(),
         ];
     }
 

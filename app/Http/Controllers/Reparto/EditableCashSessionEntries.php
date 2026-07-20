@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Reparto;
 
 use App\Models\CashSession;
+use App\Models\DailyExpense;
 use App\Models\DeliveryOrder;
+use App\Models\PersonalService;
 use App\Services\CompanyBalanceService;
 use App\Services\DeliveryCommissionCalculator;
 use Illuminate\Http\Request;
@@ -25,6 +27,30 @@ trait EditableCashSessionEntries
     protected function assertOrderBelongsToSession(DeliveryOrder $order, CashSession $session): void
     {
         abort_unless($order->cash_session_id === $session->id, 403);
+    }
+
+    protected function assertExpenseBelongsToSession(DailyExpense $expense, CashSession $session): void
+    {
+        abort_unless($expense->user_id === $session->user_id, 403);
+        $this->assertDateInSessionActivity($expense->expense_date->format('Y-m-d'), $session);
+    }
+
+    protected function assertPersonalServiceBelongsToSession(PersonalService $service, CashSession $session): void
+    {
+        abort_unless($service->user_id === $session->user_id, 403);
+        abort_unless($service->isCompleted(), 403);
+        $this->assertDateInSessionActivity($service->service_date->format('Y-m-d'), $session);
+    }
+
+    protected function assertDateInSessionActivity(string $date, CashSession $session): void
+    {
+        [$start, $end] = $session->activityDateRange();
+
+        abort_unless(
+            $date >= $start && $date <= $end,
+            403,
+            'Este registro no pertenece a esta jornada.',
+        );
     }
 
     protected function assertCanDeleteOrderInSession(CashSession $session): void

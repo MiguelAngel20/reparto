@@ -67,6 +67,33 @@ class CashSession extends Model
         return $this->session_type === self::TYPE_LIVE;
     }
 
+    /** Fecha contable de la jornada (día en que se inició). */
+    public function businessDate(): string
+    {
+        $raw = $this->getRawOriginal('capture_date');
+
+        if ($raw) {
+            return substr((string) $raw, 0, 10);
+        }
+
+        return $this->started_at?->toDateString() ?? now()->toDateString();
+    }
+
+    /**
+     * Rango de fechas en que pueden registrarse servicios propios y gastos de esta jornada.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function activityDateRange(): array
+    {
+        $start = $this->businessDate();
+        $end = $this->isOpen()
+            ? now()->toDateString()
+            : ($this->ended_at?->toDateString() ?? $start);
+
+        return [$start, $end];
+    }
+
     public function scopeLive(Builder $query): Builder
     {
         return $query->where('session_type', self::TYPE_LIVE);

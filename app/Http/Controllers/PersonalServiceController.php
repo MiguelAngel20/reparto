@@ -6,6 +6,7 @@ use App\Http\Requests\PersonalService\StorePersonalServiceRequest;
 use App\Http\Requests\PersonalService\UpdatePersonalServiceRequest;
 use App\Models\PersonalService;
 use App\Services\DailyEarningsHelper;
+use App\Support\DateRangeQuery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,19 +17,25 @@ class PersonalServiceController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $today = now()->toDateString();
-        $summary = DailyEarningsHelper::daySummaryForUser($user->id, $today);
+        [$dateFrom, $dateTo] = DateRangeQuery::resolve($request);
+        $summary = DailyEarningsHelper::summaryForUserInRange($user->id, $dateFrom, $dateTo);
 
         $services = PersonalService::query()
             ->where('user_id', $user->id)
-            ->whereDate('service_date', $today)
+            ->whereDate('service_date', '>=', $dateFrom)
+            ->whereDate('service_date', '<=', $dateTo)
             ->completed()
+            ->orderByDesc('service_date')
             ->latest()
             ->get()
             ->map(fn (PersonalService $service) => $this->formatService($service));
 
         return Inertia::render('PersonalService/Index', [
-            'todayDateFormatted' => now()->format('d/m/Y'),
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'rangeLabel' => DateRangeQuery::formatLabel($dateFrom, $dateTo),
+            'isSingleDay' => DateRangeQuery::isSingleDay($dateFrom, $dateTo),
+            'isTodayRange' => DateRangeQuery::isTodayRange($dateFrom, $dateTo),
             'todayEarnings' => $summary['today_earnings'],
             'sessionEarnings' => $summary['session_earnings'],
             'totalPersonalServices' => $summary['personal_services'],
@@ -91,6 +98,8 @@ class PersonalServiceController extends Controller
             'amount' => (float) $service->amount,
             'amount_label' => '$'.number_format((float) $service->amount, 2),
             'description' => $service->description,
+            'service_date' => $service->service_date->format('Y-m-d'),
+            'service_date_formatted' => $service->service_date->format('d/m/Y'),
             'created_at' => $service->created_at?->format('H:i'),
         ];
     }

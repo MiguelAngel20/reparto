@@ -26,7 +26,7 @@ import {
     TrendingUp,
     Wallet,
 } from 'lucide-react';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 type BalanceDisplay = {
@@ -100,6 +100,21 @@ function toneClass(tone: BalanceDisplay['tone']): string {
     if (tone === 'amber') return 'text-amber-600 dark:text-amber-400';
     if (tone === 'violet') return 'text-violet-600 dark:text-violet-400';
     return 'text-slate-700 dark:text-slate-200';
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+        return false;
+    }
+
+    const tag = target.tagName;
+
+    return (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target.isContentEditable
+    );
 }
 
 function DebtCycleSeparator({
@@ -288,6 +303,50 @@ export default function CardAccountShow({
         if (flash?.error) toast.error(flash.error);
     }, [flash?.success, flash?.error]);
 
+    const openPurchaseModal = useCallback(() => {
+        purchaseForm.setData('movement_date', localDateInputValue());
+        setPurchaseModalOpen(true);
+    }, [purchaseForm]);
+
+    useEffect(() => {
+        if (!canCreate) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'F1') {
+                return;
+            }
+
+            if (isTypingTarget(event.target)) {
+                return;
+            }
+
+            if (
+                purchaseModalOpen ||
+                paymentModalOpen ||
+                realDepositModalOpen ||
+                editingMovement !== null
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+            openPurchaseModal();
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [
+        canCreate,
+        purchaseModalOpen,
+        paymentModalOpen,
+        realDepositModalOpen,
+        editingMovement,
+        openPurchaseModal,
+    ]);
+
     const submitPurchase = (e: React.FormEvent) => {
         e.preventDefault();
         purchaseForm.post(`/cuenta-tarjeta/${account.id}/compras`, {
@@ -474,14 +533,14 @@ export default function CardAccountShow({
                         {canCreate && (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    purchaseForm.setData('movement_date', localDateInputValue());
-                                    setPurchaseModalOpen(true);
-                                }}
+                                onClick={openPurchaseModal}
                                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white hover:opacity-90"
                             >
                                 <Plus className="h-4 w-4" />
                                 Agregar compra
+                                <kbd className="hidden rounded border border-white/30 bg-white/10 px-1.5 py-0.5 text-[10px] font-normal sm:inline">
+                                    F1
+                                </kbd>
                             </button>
                         )}
                         {canPayment && (

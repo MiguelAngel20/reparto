@@ -91,6 +91,7 @@ interface RepartoIndexProps {
     recentSessions: CashSessionData[];
     canStartJornadaToday: boolean;
     todayDateFormatted: string;
+    sessionDateFormatted: string | null;
     todayBlockedMessage: string | null;
     userPercentage: number;
     companyName: string;
@@ -117,6 +118,7 @@ export default function RepartoIndex({
     recentSessions,
     canStartJornadaToday,
     todayDateFormatted,
+    sessionDateFormatted,
     todayBlockedMessage,
     userPercentage,
     companyName,
@@ -355,6 +357,8 @@ export default function RepartoIndex({
 
     const myEarningsToday =
         (openSession?.user_earnings ?? 0) + totalPersonalServicesToday;
+
+    const jornadaDateFormatted = sessionDateFormatted ?? todayDateFormatted;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs} title="Iniciar jornada">
@@ -841,6 +845,11 @@ export default function RepartoIndex({
                         <Card className={`${cardClass} p-4 sm:p-5`}>
                             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
                                 Pedidos del día
+                                {sessionDateFormatted && (
+                                    <span className="ml-1 font-normal text-slate-500">
+                                        · {jornadaDateFormatted}
+                                    </span>
+                                )}
                             </h3>
 
                             {sessionOrders.length === 0 ? (
@@ -988,6 +997,11 @@ export default function RepartoIndex({
                         <Card className={`${cardClass} p-4 sm:p-5`}>
                             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
                                 Servicios propios del día
+                                {sessionDateFormatted && (
+                                    <span className="ml-1 font-normal text-slate-500">
+                                        · {jornadaDateFormatted}
+                                    </span>
+                                )}
                             </h3>
 
                             {sessionPersonalServices.length === 0 ? (
@@ -1094,6 +1108,11 @@ export default function RepartoIndex({
                         <Card className={`${cardClass} p-4 sm:p-5`}>
                             <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
                                 Gastos del día
+                                {sessionDateFormatted && (
+                                    <span className="ml-1 font-normal text-slate-500">
+                                        · {jornadaDateFormatted}
+                                    </span>
+                                )}
                             </h3>
 
                             {sessionExpenses.length === 0 ? (

@@ -3,7 +3,7 @@ import { Card } from '@/components/ui';
 import { formatCurrency, cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Briefcase, ClipboardList, Receipt } from 'lucide-react';
 import { useMemo } from 'react';
 import { type SessionHistoryItem } from '@/components/reparto/session-history-list';
 
@@ -23,11 +23,32 @@ type SessionData = SessionHistoryItem & {
     session_type?: 'live' | 'manual';
     started_at_formatted?: string | null;
     ended_at_formatted?: string | null;
+    net_earnings?: number;
+    personal_services_total?: number;
+    total_expenses?: number;
+};
+
+type PersonalServiceRow = {
+    id: number;
+    name: string;
+    amount: number;
+    spent_amount: number | null;
+    client_charge: number;
+    description: string | null;
+};
+
+type ExpenseRow = {
+    id: number;
+    name: string;
+    amount: number;
+    concept: string | null;
 };
 
 interface SessionShowProps {
     session: SessionData;
     orders: OrderRow[];
+    personalServices: PersonalServiceRow[];
+    expenses: ExpenseRow[];
     companyName: string;
     backUrl: string;
     backLabel: string;
@@ -67,6 +88,8 @@ function StatPill({
 export default function SessionShow({
     session,
     orders,
+    personalServices,
+    expenses,
     companyName,
     backUrl,
     backLabel,
@@ -92,6 +115,11 @@ export default function SessionShow({
     const cuadreTone = dayOwes ? 'amber' : dayClikioOwes ? 'violet' : undefined;
 
     const netEarnings = session.net_earnings;
+    const personalServicesTotal =
+        session.personal_services_total ??
+        personalServices.reduce((acc, row) => acc + row.amount, 0);
+    const expensesTotal =
+        session.total_expenses ?? expenses.reduce((acc, row) => acc + row.amount, 0);
     const saldoTone =
         netEarnings !== undefined && netEarnings > 0.01
             ? 'emerald'
@@ -163,12 +191,26 @@ export default function SessionShow({
 
                 <Card className={cardClass}>
                     {netEarnings !== undefined && (
-                        <div className="mb-3">
+                        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                             <StatPill
                                 label="Saldo del día"
                                 value={`$${formatCurrency(Math.abs(netEarnings))}${netEarnings < -0.01 ? ' (neg.)' : ''}`}
                                 tone={saldoTone}
                             />
+                            {personalServicesTotal > 0 && (
+                                <StatPill
+                                    label="Servicios propios"
+                                    value={`+$${formatCurrency(personalServicesTotal)}`}
+                                    tone="violet"
+                                />
+                            )}
+                            {expensesTotal > 0 && (
+                                <StatPill
+                                    label="Gastos del día"
+                                    value={`$${formatCurrency(expensesTotal)}`}
+                                    tone="rose"
+                                />
+                            )}
                         </div>
                     )}
                     <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
@@ -202,6 +244,96 @@ export default function SessionShow({
                         />
                     </div>
                 </Card>
+
+                {personalServices.length > 0 && (
+                    <Card className={cardClass}>
+                        <div className="mb-3 flex items-center gap-2">
+                            <Briefcase className="h-5 w-5 text-violet-600" />
+                            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                                Servicios propios del día
+                            </h2>
+                        </div>
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#3a3a3a]">
+                            <table className="w-full min-w-[520px] text-left text-sm">
+                                <thead>
+                                    <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]">
+                                        <th className="px-4 py-3">Nombre</th>
+                                        <th className="px-4 py-3 text-right">Servicio</th>
+                                        <th className="px-4 py-3 text-right">Gastado</th>
+                                        <th className="px-4 py-3 text-right">Cobro al cliente</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-[#333]">
+                                    {personalServices.map((row, index) => (
+                                        <tr
+                                            key={row.id}
+                                            className="text-slate-700 dark:text-slate-300"
+                                        >
+                                            <td className="px-4 py-3">
+                                                <span className="mr-2 text-xs text-slate-400">
+                                                    {index + 1}.
+                                                </span>
+                                                {row.name}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-medium text-violet-600">
+                                                +${formatCurrency(row.amount)}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                {row.spent_amount !== null && row.spent_amount > 0
+                                                    ? `$${formatCurrency(row.spent_amount)}`
+                                                    : '—'}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-medium">
+                                                ${formatCurrency(row.client_charge)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                )}
+
+                {expenses.length > 0 && (
+                    <Card className={cardClass}>
+                        <div className="mb-3 flex items-center gap-2">
+                            <Receipt className="h-5 w-5 text-rose-600" />
+                            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                                Gastos del día
+                            </h2>
+                        </div>
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#3a3a3a]">
+                            <table className="w-full min-w-[480px] text-left text-sm">
+                                <thead>
+                                    <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]">
+                                        <th className="px-4 py-3">Nombre</th>
+                                        <th className="px-4 py-3 text-right">Cantidad</th>
+                                        <th className="px-4 py-3">Concepto</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-[#333]">
+                                    {expenses.map((row, index) => (
+                                        <tr
+                                            key={row.id}
+                                            className="text-slate-700 dark:text-slate-300"
+                                        >
+                                            <td className="px-4 py-3">
+                                                <span className="mr-2 text-xs text-slate-400">
+                                                    {index + 1}.
+                                                </span>
+                                                {row.name}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-medium text-rose-600">
+                                                ${formatCurrency(row.amount)}
+                                            </td>
+                                            <td className="px-4 py-3">{row.concept ?? '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                )}
 
                 <Card className={cardClass}>
                     <div className="mb-3 flex items-center gap-2">
