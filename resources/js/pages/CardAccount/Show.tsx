@@ -26,7 +26,7 @@ import {
     TrendingUp,
     Wallet,
 } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 type BalanceDisplay = {
@@ -117,6 +117,68 @@ function isTypingTarget(target: EventTarget | null): boolean {
     );
 }
 
+type MovementDateGroup = {
+    dateKey: string;
+    label: string;
+    movements: MovementRow[];
+};
+
+function formatMovementDateGroupLabel(
+    dateKey: string,
+    formatted: string | null,
+): string {
+    const today = localDateInputValue();
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = localDateInputValue(yesterdayDate);
+
+    if (dateKey === today) {
+        return `Hoy · ${formatted ?? dateKey}`;
+    }
+
+    if (dateKey === yesterday) {
+        return `Ayer · ${formatted ?? dateKey}`;
+    }
+
+    return formatted ?? dateKey;
+}
+
+function groupMovementsByDate(movements: MovementRow[]): MovementDateGroup[] {
+    const groups: MovementDateGroup[] = [];
+
+    for (const movement of movements) {
+        const dateKey = movement.movement_date;
+        const lastGroup = groups[groups.length - 1];
+
+        if (lastGroup && lastGroup.dateKey === dateKey) {
+            lastGroup.movements.push(movement);
+            continue;
+        }
+
+        groups.push({
+            dateKey,
+            label: formatMovementDateGroupLabel(
+                dateKey,
+                movement.movement_date_formatted,
+            ),
+            movements: [movement],
+        });
+    }
+
+    return groups;
+}
+
+function MovementDateHeader({ label }: { label: string }) {
+    return (
+        <li className="flex items-center gap-3 pt-3 first:pt-0">
+            <span className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                {label}
+            </span>
+            <div className="h-px flex-1 bg-slate-200 dark:bg-[#3a3a3a]" />
+        </li>
+    );
+}
+
 function DebtCycleSeparator({
     type,
     date,
@@ -195,10 +257,9 @@ function MovementListItem({
                 {movement.payment_method_label && (
                     <p className="mt-0.5 text-xs text-slate-500">{movement.payment_method_label}</p>
                 )}
-                {movement.movement_date_formatted && (
+                {movement.registered_by && (
                     <p className="mt-1 text-[10px] text-slate-400">
-                        {movement.movement_date_formatted}
-                        {movement.registered_by && ` · ${movement.registered_by}`}
+                        {movement.registered_by}
                     </p>
                 )}
             </div>
@@ -471,6 +532,11 @@ export default function CardAccountShow({
         visitMovements({ page });
     };
 
+    const movementGroups = useMemo(
+        () => groupMovementsByDate(movements.data),
+        [movements.data],
+    );
+
     return (
         <AppLayout breadcrumbs={breadcrumbs(account.id)} title="Cuenta tarjeta">
             <Head title="Cuenta tarjeta" />
@@ -600,8 +666,8 @@ export default function CardAccountShow({
                                 Movimientos
                             </h2>
                             <p className="mt-1 text-sm text-slate-500">
-                                Más recientes primero. Los separadores indican inicio de deuda y cuando
-                                quedó al corriente.
+                                Agrupados por fecha, más recientes primero. Los separadores indican
+                                inicio de deuda y cuando quedó al corriente.
                             </p>
                         </div>
                         {movements.total > 0 && (
@@ -617,24 +683,29 @@ export default function CardAccountShow({
                         </p>
                     ) : (
                         <ul className="mt-4 space-y-2">
-                            {movements.data.map((movement) => (
-                                <Fragment key={movement.id}>
-                                    <MovementListItem
-                                        movement={movement}
-                                        canUpdate={canUpdate}
-                                        canDelete={canDelete}
-                                        onEdit={openEdit}
-                                        onDelete={deleteMovement}
-                                    />
-                                    {movement.marker_after === 'cycle_start' && (
-                                        <DebtCycleSeparator
-                                            type="cycle_start"
-                                            date={movement.cycle_start_date_formatted}
-                                        />
-                                    )}
-                                    {movement.marker_after === 'settled' && (
-                                        <DebtCycleSeparator type="settled" />
-                                    )}
+                            {movementGroups.map((group) => (
+                                <Fragment key={group.dateKey}>
+                                    <MovementDateHeader label={group.label} />
+                                    {group.movements.map((movement) => (
+                                        <Fragment key={movement.id}>
+                                            <MovementListItem
+                                                movement={movement}
+                                                canUpdate={canUpdate}
+                                                canDelete={canDelete}
+                                                onEdit={openEdit}
+                                                onDelete={deleteMovement}
+                                            />
+                                            {movement.marker_after === 'cycle_start' && (
+                                                <DebtCycleSeparator
+                                                    type="cycle_start"
+                                                    date={movement.cycle_start_date_formatted}
+                                                />
+                                            )}
+                                            {movement.marker_after === 'settled' && (
+                                                <DebtCycleSeparator type="settled" />
+                                            )}
+                                        </Fragment>
+                                    ))}
                                 </Fragment>
                             ))}
                         </ul>
