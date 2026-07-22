@@ -18,6 +18,9 @@ const navItems = [
     { title: 'Cuenta', href: '/cuenta-empresa', icon: Scale, section: 'company_balance' as const },
 ];
 
+const profileMenuItemClass =
+    'flex cursor-pointer items-center gap-2 text-slate-900 focus:bg-slate-100 focus:text-slate-900 dark:text-white dark:focus:bg-white/10 dark:focus:text-white [&_svg]:text-slate-600 dark:[&_svg]:text-white';
+
 /** Barra de navegación inferior tipo app móvil (se muestra en pantallas < 500px). */
 export function AppBottomNav() {
     const { url } = usePage();
@@ -94,21 +97,21 @@ export function AppBottomNav() {
                         side="top"
                         align="end"
                         sideOffset={10}
-                        className="min-w-[190px] border-slate-200 bg-white dark:border-slate-700 dark:bg-[#262626]"
+                        className="min-w-[190px] border-slate-200 bg-white text-slate-900 dark:border-[#343434] dark:bg-[#262626] dark:text-white"
                     >
                         {canView('gasto') && (
-                            <DropdownMenuItem asChild>
-                                <Link href="/gasto" className="flex cursor-pointer items-center gap-2">
+                            <DropdownMenuItem asChild className={profileMenuItemClass}>
+                                <Link href="/gasto" className={profileMenuItemClass}>
                                     <Receipt className="h-4 w-4" />
                                     Gasto
                                 </Link>
                             </DropdownMenuItem>
                         )}
                         {canView('personal_service') && (
-                            <DropdownMenuItem asChild>
+                            <DropdownMenuItem asChild className={profileMenuItemClass}>
                                 <Link
                                     href="/mis-servicios"
-                                    className="flex cursor-pointer items-center gap-2"
+                                    className={profileMenuItemClass}
                                 >
                                     <Briefcase className="h-4 w-4" />
                                     Mis servicios
@@ -116,31 +119,31 @@ export function AppBottomNav() {
                             </DropdownMenuItem>
                         )}
                         {canView('card_account') && (
-                            <DropdownMenuItem asChild>
+                            <DropdownMenuItem asChild className={profileMenuItemClass}>
                                 <Link
                                     href="/cuenta-tarjeta"
-                                    className="flex cursor-pointer items-center gap-2"
+                                    className={profileMenuItemClass}
                                 >
                                     <CreditCard className="h-4 w-4" />
                                     Cuenta tarjeta
                                 </Link>
                             </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem asChild>
+                        <DropdownMenuItem asChild className={profileMenuItemClass}>
                             <Link
                                 href={
                                     user?.role === 'admin'
                                         ? '/settings/users'
                                         : '/settings/profile'
                                 }
-                                className="flex cursor-pointer items-center gap-2"
+                                className={profileMenuItemClass}
                             >
                                 <Settings className="h-4 w-4" />
                                 Configuración
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                            className="flex cursor-pointer items-center gap-2"
+                            className={profileMenuItemClass}
                             onClick={() => router.post('/logout')}
                         >
                             <LogOut className="h-4 w-4" />

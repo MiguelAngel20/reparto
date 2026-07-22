@@ -52,6 +52,15 @@ class CompanyBalanceController extends Controller
 
     public function storeEntry(StoreBalanceEntryRequest $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if (abs($this->companyBalance->currentBalance($user)) >= 0.01) {
+            return back()->with(
+                'error',
+                'Liquida el saldo actual antes de registrar uno nuevo.',
+            );
+        }
+
         $validated = $request->validated();
 
         $this->companyBalance->addBalanceEntry(

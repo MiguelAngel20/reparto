@@ -42,7 +42,7 @@ class CompanyBalanceService
         return [
             'label' => 'Cuenta cuadrada',
             'tone' => 'neutral',
-            'value' => 'Cuadrado',
+            'value' => '$0.00',
         ];
     }
 

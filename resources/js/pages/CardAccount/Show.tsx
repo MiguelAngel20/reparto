@@ -308,16 +308,18 @@ export default function CardAccountShow({
         setPurchaseModalOpen(true);
     }, [purchaseForm]);
 
+    const openPaymentModal = useCallback(() => {
+        paymentForm.setData('movement_date', localDateInputValue());
+        setPaymentModalOpen(true);
+    }, [paymentForm]);
+
+    const openRealDepositModal = useCallback(() => {
+        realDepositForm.setData('movement_date', localDateInputValue());
+        setRealDepositModalOpen(true);
+    }, [realDepositForm]);
+
     useEffect(() => {
-        if (!canCreate) {
-            return;
-        }
-
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'F1') {
-                return;
-            }
-
             if (isTypingTarget(event.target)) {
                 return;
             }
@@ -331,8 +333,22 @@ export default function CardAccountShow({
                 return;
             }
 
-            event.preventDefault();
-            openPurchaseModal();
+            if (event.key === 'F1' && canCreate) {
+                event.preventDefault();
+                openPurchaseModal();
+                return;
+            }
+
+            if (event.key === 'F2' && canPayment) {
+                event.preventDefault();
+                openPaymentModal();
+                return;
+            }
+
+            if (event.key === 'F3' && canRealDeposit && realBalanceConfigured) {
+                event.preventDefault();
+                openRealDepositModal();
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
@@ -340,11 +356,16 @@ export default function CardAccountShow({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [
         canCreate,
+        canPayment,
+        canRealDeposit,
+        realBalanceConfigured,
         purchaseModalOpen,
         paymentModalOpen,
         realDepositModalOpen,
         editingMovement,
         openPurchaseModal,
+        openPaymentModal,
+        openRealDepositModal,
     ]);
 
     const submitPurchase = (e: React.FormEvent) => {
@@ -546,27 +567,27 @@ export default function CardAccountShow({
                         {canPayment && (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    paymentForm.setData('movement_date', localDateInputValue());
-                                    setPaymentModalOpen(true);
-                                }}
+                                onClick={openPaymentModal}
                                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400"
                             >
                                 <HandCoins className="h-4 w-4" />
                                 Registrar abono
+                                <kbd className="hidden rounded border border-emerald-300/60 bg-emerald-100/60 px-1.5 py-0.5 text-[10px] font-normal dark:border-emerald-800 dark:bg-emerald-900/40 sm:inline">
+                                    F2
+                                </kbd>
                             </button>
                         )}
                         {canRealDeposit && realBalanceConfigured && (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    realDepositForm.setData('movement_date', localDateInputValue());
-                                    setRealDepositModalOpen(true);
-                                }}
+                                onClick={openRealDepositModal}
                                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-400"
                             >
                                 <Landmark className="h-4 w-4" />
                                 Agregar dinero real
+                                <kbd className="hidden rounded border border-blue-300/60 bg-blue-100/60 px-1.5 py-0.5 text-[10px] font-normal dark:border-blue-800 dark:bg-blue-900/40 sm:inline">
+                                    F3
+                                </kbd>
                             </button>
                         )}
                     </div>

@@ -1,5 +1,13 @@
 import AppLayout from '@/layouts/app-layout';
 import { Card, Pagination } from '@/components/ui';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { confirmAction } from '@/lib/sweetalert';
@@ -7,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useSectionAccess } from '@/hooks/useSectionAccess';
-import { Pencil, Scale, X } from 'lucide-react';
+import { Pencil, Plus, Scale } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -120,6 +128,46 @@ function amountToneClass(favor: Movement['favor']): string {
     return 'text-slate-600 dark:text-slate-300';
 }
 
+function BalanceAmountDisplay({
+    tone,
+    value,
+    size = 'hero',
+}: {
+    tone: BalanceDisplay['tone'];
+    value: string;
+    size?: 'hero' | 'compact' | 'inline';
+}) {
+    if (tone === 'neutral') {
+        const amountClass =
+            size === 'hero'
+                ? 'text-2xl font-bold tabular-nums sm:text-3xl'
+                : size === 'compact'
+                  ? 'text-lg font-bold tabular-nums'
+                  : 'text-sm font-bold tabular-nums';
+        const labelClass =
+            size === 'hero'
+                ? 'text-sm font-semibold sm:text-base'
+                : size === 'compact'
+                  ? 'text-xs font-semibold'
+                  : 'text-[10px] font-semibold';
+
+        return (
+            <span className="inline-flex items-baseline gap-1.5">
+                <span className={cn(amountClass, toneClass(tone))}>$0.00</span>
+            </span>
+        );
+    }
+
+    const valueClass =
+        size === 'hero'
+            ? 'text-2xl font-bold sm:text-3xl'
+            : size === 'compact'
+              ? 'text-lg font-bold'
+              : 'text-sm font-semibold';
+
+    return <span className={cn(valueClass, toneClass(tone))}>{value}</span>;
+}
+
 export default function CompanyBalanceIndex({
     companyName,
     balance,
@@ -132,7 +180,8 @@ export default function CompanyBalanceIndex({
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editingType, setEditingType] = useState<'entry' | 'resulting_balance' | null>(null);
-    const [showAdjustForm, setShowAdjustForm] = useState(false);
+    const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+    const [registerModalOpen, setRegisterModalOpen] = useState(false);
 
     const entryForm = useForm({
         direction: 'company_owes' as 'company_owes' | 'user_owes',
@@ -151,6 +200,28 @@ export default function CompanyBalanceIndex({
     });
 
     const hasBalance = Math.abs(balance) >= 0.01;
+    const isBalanced = !hasBalance;
+
+    const openRegisterModal = () => {
+        cancelEditing();
+        closeAdjustModal();
+        entryForm.reset();
+        entryForm.clearErrors();
+        setRegisterModalOpen(true);
+    };
+
+    const closeRegisterModal = () => {
+        setRegisterModalOpen(false);
+        entryForm.reset();
+        entryForm.clearErrors();
+    };
+
+    const closeEditModal = () => {
+        setEditingId(null);
+        setEditingType(null);
+        entryForm.reset();
+        entryForm.clearErrors();
+    };
 
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
@@ -168,23 +239,20 @@ export default function CompanyBalanceIndex({
 
             entryForm.put(endpoint, {
                 preserveScroll: true,
-                onSuccess: () => {
-                    entryForm.reset();
-                    setEditingId(null);
-                    setEditingType(null);
-                },
+                onSuccess: () => closeEditModal(),
             });
             return;
         }
 
         entryForm.post('/cuenta-empresa/saldo', {
             preserveScroll: true,
-            onSuccess: () => entryForm.reset('amount', 'notes'),
+            onSuccess: () => closeRegisterModal(),
         });
     };
 
     const startEditing = (movement: Movement) => {
-        setShowAdjustForm(false);
+        setAdjustModalOpen(false);
+        setRegisterModalOpen(false);
         setEditingId(movement.id);
 
         if (movement.type === 'session_settlement') {
@@ -213,14 +281,12 @@ export default function CompanyBalanceIndex({
     };
 
     const cancelEditing = () => {
-        setEditingId(null);
-        setEditingType(null);
-        entryForm.reset();
-        entryForm.clearErrors();
+        closeEditModal();
     };
 
-    const openAdjustForm = () => {
+    const openAdjustModal = () => {
         cancelEditing();
+        closeRegisterModal();
         const direction = balance < -0.01 ? 'company_owes' : 'user_owes';
         const amount = Math.abs(balance) >= 0.01 ? String(Math.abs(balance)) : '';
 
@@ -230,11 +296,11 @@ export default function CompanyBalanceIndex({
             notes: '',
         });
         adjustForm.clearErrors();
-        setShowAdjustForm(true);
+        setAdjustModalOpen(true);
     };
 
-    const cancelAdjustForm = () => {
-        setShowAdjustForm(false);
+    const closeAdjustModal = () => {
+        setAdjustModalOpen(false);
         adjustForm.reset();
         adjustForm.clearErrors();
     };
@@ -243,10 +309,7 @@ export default function CompanyBalanceIndex({
         e.preventDefault();
         adjustForm.post('/cuenta-empresa/ajustar', {
             preserveScroll: true,
-            onSuccess: () => {
-                adjustForm.reset();
-                setShowAdjustForm(false);
-            },
+            onSuccess: () => closeAdjustModal(),
         });
     };
 
@@ -296,255 +359,179 @@ export default function CompanyBalanceIndex({
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="text-sm text-slate-500">Saldo acumulado con {companyName}</p>
-                            <p className={cn('mt-1 text-2xl font-bold sm:text-3xl', toneClass(balanceDisplay.tone))}>
-                                {balanceDisplay.value}
+                            <p className="mt-1">
+                                <BalanceAmountDisplay
+                                    tone={balanceDisplay.tone}
+                                    value={balanceDisplay.value}
+                                    size="hero"
+                                />
                             </p>
                             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                                 {balanceDisplay.label}
-                            </p>
-                            <p className="mt-2 text-xs text-slate-500">
-                                Cada jornada cerrada con fecha igual o posterior a tu saldo registrado
-                                suma o resta según el cuadre del día. Las capturas manuales de fechas
-                                anteriores solo quedan como referencia y no afectan esta cuenta.
                             </p>
                         </div>
                     </div>
 
                     {canEdit && (
                     <div className="mt-4 flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            onClick={openAdjustForm}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-sidebar-active bg-sidebar-active/5 px-4 text-sm font-semibold text-sidebar-active hover:bg-sidebar-active/10 sm:px-6"
-                        >
-                            <Pencil className="h-4 w-4" />
-                            Ajustar saldo final
-                        </button>
                         {hasBalance && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={openAdjustModal}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-sidebar-active bg-sidebar-active/5 px-4 text-sm font-semibold text-sidebar-active hover:bg-sidebar-active/10 sm:px-6"
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                    Ajustar saldo final
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={submitLiquidation}
+                                    disabled={liquidateForm.processing}
+                                    className="inline-flex h-10 items-center justify-center rounded-xl border-2 border-sidebar-active px-4 text-sm font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50 sm:px-6"
+                                >
+                                    {liquidateForm.processing ? 'Liquidando...' : 'Liquidar cuenta'}
+                                </button>
+                            </>
+                        )}
+                        {isBalanced && (
                             <button
                                 type="button"
-                                onClick={submitLiquidation}
-                                disabled={liquidateForm.processing}
-                                className="inline-flex h-10 items-center justify-center rounded-xl border-2 border-sidebar-active px-4 text-sm font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50 sm:px-6"
+                                onClick={openRegisterModal}
+                                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white hover:opacity-90 sm:px-6"
                             >
-                                {liquidateForm.processing ? 'Liquidando...' : 'Liquidar cuenta'}
+                                <Plus className="h-4 w-4" />
+                                Registrar nuevo saldo
                             </button>
                         )}
                     </div>
                     )}
                 </Card>
 
-                {showAdjustForm && (
-                    <Card className={cardClass}>
-                        <div className="flex items-start justify-between gap-3">
-                            <div>
-                                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                                    Ajustar saldo final con {companyName}
-                                </h2>
-                                <p className="mt-1 text-sm text-slate-500">
+                {canEdit && (
+                    <Dialog
+                        open={adjustModalOpen}
+                        onOpenChange={(open) => {
+                            if (!open) closeAdjustModal();
+                        }}
+                    >
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Ajustar saldo final con {companyName}</DialogTitle>
+                                <DialogDescription>
                                     Indica el saldo correcto según el cuadre de la empresa (por
                                     redondeos u otros detalles). Sistema actual:{' '}
-                                    <span className="font-semibold text-slate-700 dark:text-slate-200">
-                                        {balanceDisplay.value}
-                                    </span>
+                                    <BalanceAmountDisplay
+                                        tone={balanceDisplay.tone}
+                                        value={balanceDisplay.value}
+                                        size="inline"
+                                    />
                                     .
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={submitAdjust} noValidate className="space-y-4">
+                                <p className="text-xs text-slate-500">
+                                    El saldo correcto ahora debe ser:
                                 </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={cancelAdjustForm}
-                                className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
-                                title="Cancelar"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={submitAdjust} noValidate className="mt-4 space-y-4">
-                            <p className="text-xs text-slate-500">
-                                El saldo correcto ahora debe ser:
-                            </p>
-                            <div className="grid gap-2 sm:grid-cols-2">
-                                <button
-                                    type="button"
-                                    onClick={() => adjustForm.setData('direction', 'company_owes')}
-                                    className={cn(
-                                        'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
-                                        adjustForm.data.direction === 'company_owes'
-                                            ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
-                                            : 'border-slate-200 dark:border-[#3a3a3a]',
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            adjustForm.setData('direction', 'company_owes')
+                                        }
+                                        className={cn(
+                                            'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                                            adjustForm.data.direction === 'company_owes'
+                                                ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
+                                                : 'border-slate-200 dark:border-[#3a3a3a]',
+                                        )}
+                                    >
+                                        <span className="block font-semibold">
+                                            {companyName} me debe
+                                        </span>
+                                        <span className="mt-1 block text-xs opacity-80">
+                                            A tu favor
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => adjustForm.setData('direction', 'user_owes')}
+                                        className={cn(
+                                            'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                                            adjustForm.data.direction === 'user_owes'
+                                                ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
+                                                : 'border-slate-200 dark:border-[#3a3a3a]',
+                                        )}
+                                    >
+                                        <span className="block font-semibold">
+                                            Yo le debo a {companyName}
+                                        </span>
+                                        <span className="mt-1 block text-xs opacity-80">
+                                            A favor de la empresa
+                                        </span>
+                                    </button>
+                                </div>
+                                <div>
+                                    <Label
+                                        htmlFor="adjust_amount"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        Saldo correcto ($)
+                                    </Label>
+                                    <Input
+                                        id="adjust_amount"
+                                        type="number"
+                                        min={0.01}
+                                        step="0.01"
+                                        value={adjustForm.data.amount}
+                                        onChange={(e) =>
+                                            adjustForm.setData('amount', e.target.value)
+                                        }
+                                        className={cn(
+                                            adjustForm.errors.amount && 'border-rose-500',
+                                        )}
+                                    />
+                                    {adjustForm.errors.amount && (
+                                        <p className="mt-1 text-xs text-rose-600">
+                                            {adjustForm.errors.amount}
+                                        </p>
                                     )}
-                                >
-                                    <span className="block font-semibold">{companyName} me debe</span>
-                                    <span className="mt-1 block text-xs opacity-80">A tu favor</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => adjustForm.setData('direction', 'user_owes')}
-                                    className={cn(
-                                        'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
-                                        adjustForm.data.direction === 'user_owes'
-                                            ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
-                                            : 'border-slate-200 dark:border-[#3a3a3a]',
-                                    )}
-                                >
-                                    <span className="block font-semibold">Yo le debo a {companyName}</span>
-                                    <span className="mt-1 block text-xs opacity-80">A favor de la empresa</span>
-                                </button>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="adjust_amount" className="mb-1 block text-xs text-slate-500">
-                                    Saldo correcto ($)
-                                </Label>
-                                <Input
-                                    id="adjust_amount"
-                                    type="number"
-                                    min={0.01}
-                                    step="0.01"
-                                    value={adjustForm.data.amount}
-                                    onChange={(e) => adjustForm.setData('amount', e.target.value)}
-                                    className={cn(adjustForm.errors.amount && 'border-rose-500')}
-                                />
-                                {adjustForm.errors.amount && (
-                                    <p className="mt-1 text-xs text-rose-600">{adjustForm.errors.amount}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <Label htmlFor="adjust_notes" className="mb-1 block text-xs text-slate-500">
-                                    Motivo (opcional)
-                                </Label>
-                                <Input
-                                    id="adjust_notes"
-                                    value={adjustForm.data.notes}
-                                    onChange={(e) => adjustForm.setData('notes', e.target.value)}
-                                    placeholder="Ej. Redondeo de centavos con Clikio"
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={adjustForm.processing}
-                                className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-sidebar-active text-sm font-semibold text-white disabled:opacity-50 sm:w-auto sm:px-6"
-                            >
-                                {adjustForm.processing ? 'Guardando...' : 'Guardar ajuste'}
-                            </button>
-                        </form>
-                    </Card>
-                )}
-
-                {canEdit && (
-                <Card className={cn(cardClass, editingId && 'ring-2 ring-sidebar-active/30')}>
-                    <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                                {editingType === 'resulting_balance'
-                                    ? 'Corregir saldo después de la jornada'
-                                    : editingId
-                                      ? 'Editar saldo registrado'
-                                      : 'Registrar nuevo saldo'}
-                            </h2>
-                            <p className="mt-1 text-sm text-slate-500">
-                                {editingType === 'resulting_balance'
-                                    ? 'Indica el saldo correcto que debía quedar tras esta jornada. Los movimientos posteriores se recalculan automáticamente.'
-                                    : editingId
-                                      ? 'Al guardar, el saldo se recalcula con todas las jornadas cerradas después de este registro.'
-                                      : `Usa esto cuando traes dinero de la empresa o cuando ${companyName} ya te debe dinero antes de cerrar jornadas.`}
-                            </p>
-                        </div>
-                        {editingId && (
-                            <button
-                                type="button"
-                                onClick={cancelEditing}
-                                className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#333]"
-                                title="Cancelar edición"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        )}
-                    </div>
-
-                    <form onSubmit={submitEntry} noValidate className="mt-4 space-y-4">
-                        <div className="grid gap-2 sm:grid-cols-2">
-                            <button
-                                type="button"
-                                onClick={() => entryForm.setData('direction', 'company_owes')}
-                                className={cn(
-                                    'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
-                                    entryForm.data.direction === 'company_owes'
-                                        ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
-                                        : 'border-slate-200 dark:border-[#3a3a3a]',
-                                )}
-                            >
-                                <span className="block font-semibold">{companyName} me debe</span>
-                                <span className="mt-1 block text-xs opacity-80">A tu favor</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => entryForm.setData('direction', 'user_owes')}
-                                className={cn(
-                                    'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
-                                    entryForm.data.direction === 'user_owes'
-                                        ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
-                                        : 'border-slate-200 dark:border-[#3a3a3a]',
-                                )}
-                            >
-                                <span className="block font-semibold">Yo le debo a {companyName}</span>
-                                <span className="mt-1 block text-xs opacity-80">A favor de la empresa</span>
-                            </button>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="amount" className="mb-1 block text-xs text-slate-500">
-                                {editingType === 'resulting_balance'
-                                    ? 'Saldo correcto después de esta jornada ($)'
-                                    : 'Monto ($)'}
-                            </Label>
-                            <Input
-                                id="amount"
-                                type="number"
-                                min={editingType === 'resulting_balance' ? 0 : 0.01}
-                                step="0.01"
-                                value={entryForm.data.amount}
-                                onChange={(e) => entryForm.setData('amount', e.target.value)}
-                                placeholder="0.00"
-                                className={cn(entryForm.errors.amount && 'border-rose-500')}
-                            />
-                            {entryForm.errors.amount && (
-                                <p className="mt-1 text-xs text-rose-600">{entryForm.errors.amount}</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label htmlFor="notes" className="mb-1 block text-xs text-slate-500">
-                                {editingType === 'resulting_balance' ? 'Motivo (opcional)' : 'Nota (opcional)'}
-                            </Label>
-                            <Input
-                                id="notes"
-                                value={entryForm.data.notes}
-                                onChange={(e) => entryForm.setData('notes', e.target.value)}
-                                placeholder={
-                                    editingType === 'resulting_balance'
-                                        ? 'Ej. Redondeo con Clikio'
-                                        : 'Ej. Efectivo que traigo de la empresa'
-                                }
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={entryForm.processing}
-                            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-sidebar-active text-sm font-semibold text-white disabled:opacity-50 sm:w-auto sm:px-6"
-                        >
-                            {entryForm.processing
-                                ? 'Guardando...'
-                                : editingId
-                                  ? 'Guardar cambios'
-                                  : 'Registrar saldo'}
-                        </button>
-                    </form>
-                </Card>
+                                </div>
+                                <div>
+                                    <Label
+                                        htmlFor="adjust_notes"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        Motivo (opcional)
+                                    </Label>
+                                    <Input
+                                        id="adjust_notes"
+                                        value={adjustForm.data.notes}
+                                        onChange={(e) =>
+                                            adjustForm.setData('notes', e.target.value)
+                                        }
+                                        placeholder="Ej. Redondeo de centavos con Clikio"
+                                    />
+                                </div>
+                                <DialogFooter className="gap-2 sm:gap-0">
+                                    <button
+                                        type="button"
+                                        onClick={closeAdjustModal}
+                                        className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={adjustForm.processing}
+                                        className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                    >
+                                        {adjustForm.processing ? 'Guardando...' : 'Guardar ajuste'}
+                                    </button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 )}
 
                 <Card className={cardClass}>
@@ -628,13 +615,12 @@ export default function CompanyBalanceIndex({
                                                     <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                                                         Saldo resultante
                                                     </p>
-                                                    <p
-                                                        className={cn(
-                                                            'mt-0.5 text-lg font-bold tabular-nums',
-                                                            toneClass(movement.balance_after_tone),
-                                                        )}
-                                                    >
-                                                        {movement.balance_after_label}
+                                                    <p className="mt-0.5">
+                                                        <BalanceAmountDisplay
+                                                            tone={movement.balance_after_tone}
+                                                            value={movement.balance_after_label}
+                                                            size="compact"
+                                                        />
                                                     </p>
                                                     {movement.balance_calculation_label && (
                                                         <p className="mt-1 font-mono text-xs tabular-nums text-slate-600 dark:text-slate-300">
@@ -651,7 +637,12 @@ export default function CompanyBalanceIndex({
                                             {!movement.shows_resulting_balance && (
                                                 <div className="text-right">
                                                     <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                                        Saldo: {movement.balance_after_label}
+                                                        Saldo:{' '}
+                                                        <BalanceAmountDisplay
+                                                            tone={movement.balance_after_tone}
+                                                            value={movement.balance_after_label}
+                                                            size="inline"
+                                                        />
                                                     </p>
                                                 </div>
                                             )}
@@ -717,6 +708,256 @@ export default function CompanyBalanceIndex({
                         </div>
                     )}
                 </Card>
+
+                {canEdit && (
+                    <Dialog
+                        open={registerModalOpen}
+                        onOpenChange={(open) => {
+                            if (!open) closeRegisterModal();
+                        }}
+                    >
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Registrar nuevo saldo</DialogTitle>
+                                <DialogDescription>
+                                    Usa esto cuando traes dinero de la empresa o cuando {companyName}{' '}
+                                    ya te debe dinero antes de cerrar jornadas. Solo disponible con
+                                    saldo en cero.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={submitEntry} noValidate className="space-y-4">
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            entryForm.setData('direction', 'company_owes')
+                                        }
+                                        className={cn(
+                                            'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                                            entryForm.data.direction === 'company_owes'
+                                                ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
+                                                : 'border-slate-200 dark:border-[#3a3a3a]',
+                                        )}
+                                    >
+                                        <span className="block font-semibold">
+                                            {companyName} me debe
+                                        </span>
+                                        <span className="mt-1 block text-xs opacity-80">
+                                            A tu favor
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => entryForm.setData('direction', 'user_owes')}
+                                        className={cn(
+                                            'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                                            entryForm.data.direction === 'user_owes'
+                                                ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
+                                                : 'border-slate-200 dark:border-[#3a3a3a]',
+                                        )}
+                                    >
+                                        <span className="block font-semibold">
+                                            Yo le debo a {companyName}
+                                        </span>
+                                        <span className="mt-1 block text-xs opacity-80">
+                                            A favor de la empresa
+                                        </span>
+                                    </button>
+                                </div>
+                                <div>
+                                    <Label
+                                        htmlFor="register_amount"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        Monto ($)
+                                    </Label>
+                                    <Input
+                                        id="register_amount"
+                                        type="number"
+                                        min={0.01}
+                                        step="0.01"
+                                        value={entryForm.data.amount}
+                                        onChange={(e) =>
+                                            entryForm.setData('amount', e.target.value)
+                                        }
+                                        placeholder="0.00"
+                                        className={cn(
+                                            entryForm.errors.amount && 'border-rose-500',
+                                        )}
+                                    />
+                                    {entryForm.errors.amount && (
+                                        <p className="mt-1 text-xs text-rose-600">
+                                            {entryForm.errors.amount}
+                                        </p>
+                                    )}
+                                </div>
+                                <div>
+                                    <Label
+                                        htmlFor="register_notes"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        Nota (opcional)
+                                    </Label>
+                                    <Input
+                                        id="register_notes"
+                                        value={entryForm.data.notes}
+                                        onChange={(e) =>
+                                            entryForm.setData('notes', e.target.value)
+                                        }
+                                        placeholder="Ej. Efectivo que traigo de la empresa"
+                                    />
+                                </div>
+                                <DialogFooter className="gap-2 sm:gap-0">
+                                    <button
+                                        type="button"
+                                        onClick={closeRegisterModal}
+                                        className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={entryForm.processing}
+                                        className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                    >
+                                        {entryForm.processing ? 'Guardando...' : 'Registrar saldo'}
+                                    </button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                )}
+
+                {canEdit && (
+                    <Dialog
+                        open={editingId !== null}
+                        onOpenChange={(open) => {
+                            if (!open) cancelEditing();
+                        }}
+                    >
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>
+                                    {editingType === 'resulting_balance'
+                                        ? 'Corregir saldo después de la jornada'
+                                        : 'Editar saldo registrado'}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    {editingType === 'resulting_balance'
+                                        ? 'Indica el saldo correcto que debía quedar tras esta jornada. Los movimientos posteriores se recalculan automáticamente.'
+                                        : 'Al guardar, el saldo se recalcula con todas las jornadas cerradas después de este registro.'}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={submitEntry} noValidate className="space-y-4">
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            entryForm.setData('direction', 'company_owes')
+                                        }
+                                        className={cn(
+                                            'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                                            entryForm.data.direction === 'company_owes'
+                                                ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
+                                                : 'border-slate-200 dark:border-[#3a3a3a]',
+                                        )}
+                                    >
+                                        <span className="block font-semibold">
+                                            {companyName} me debe
+                                        </span>
+                                        <span className="mt-1 block text-xs opacity-80">
+                                            A tu favor
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => entryForm.setData('direction', 'user_owes')}
+                                        className={cn(
+                                            'rounded-xl border px-3 py-3 text-left text-sm transition-colors',
+                                            entryForm.data.direction === 'user_owes'
+                                                ? 'border-sidebar-active bg-sidebar-active/10 text-sidebar-active'
+                                                : 'border-slate-200 dark:border-[#3a3a3a]',
+                                        )}
+                                    >
+                                        <span className="block font-semibold">
+                                            Yo le debo a {companyName}
+                                        </span>
+                                        <span className="mt-1 block text-xs opacity-80">
+                                            A favor de la empresa
+                                        </span>
+                                    </button>
+                                </div>
+                                <div>
+                                    <Label
+                                        htmlFor="edit_amount"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        {editingType === 'resulting_balance'
+                                            ? 'Saldo correcto después de esta jornada ($)'
+                                            : 'Monto ($)'}
+                                    </Label>
+                                    <Input
+                                        id="edit_amount"
+                                        type="number"
+                                        min={editingType === 'resulting_balance' ? 0 : 0.01}
+                                        step="0.01"
+                                        value={entryForm.data.amount}
+                                        onChange={(e) =>
+                                            entryForm.setData('amount', e.target.value)
+                                        }
+                                        placeholder="0.00"
+                                        className={cn(
+                                            entryForm.errors.amount && 'border-rose-500',
+                                        )}
+                                    />
+                                    {entryForm.errors.amount && (
+                                        <p className="mt-1 text-xs text-rose-600">
+                                            {entryForm.errors.amount}
+                                        </p>
+                                    )}
+                                </div>
+                                <div>
+                                    <Label
+                                        htmlFor="edit_notes"
+                                        className="mb-1 block text-xs text-slate-500"
+                                    >
+                                        {editingType === 'resulting_balance'
+                                            ? 'Motivo (opcional)'
+                                            : 'Nota (opcional)'}
+                                    </Label>
+                                    <Input
+                                        id="edit_notes"
+                                        value={entryForm.data.notes}
+                                        onChange={(e) =>
+                                            entryForm.setData('notes', e.target.value)
+                                        }
+                                        placeholder={
+                                            editingType === 'resulting_balance'
+                                                ? 'Ej. Redondeo con Clikio'
+                                                : 'Ej. Efectivo que traigo de la empresa'
+                                        }
+                                    />
+                                </div>
+                                <DialogFooter className="gap-2 sm:gap-0">
+                                    <button
+                                        type="button"
+                                        onClick={cancelEditing}
+                                        className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={entryForm.processing}
+                                        className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                    >
+                                        {entryForm.processing ? 'Guardando...' : 'Guardar cambios'}
+                                    </button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
         </AppLayout>
     );
