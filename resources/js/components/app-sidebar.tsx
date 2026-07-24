@@ -27,6 +27,7 @@ import {
     Settings,
     CreditCard,
     X,
+    UsersRound,
 } from 'lucide-react';
 
 interface AppSidebarProps {
@@ -40,6 +41,7 @@ interface AppSidebarProps {
 
 const allNavItems: NavItem[] = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, section: 'dashboard' },
+    { title: 'Equipo', href: '/equipo', icon: UsersRound, adminOnly: true },
     { title: 'Iniciar jornada', href: '/reparto', icon: Package, section: 'reparto' },
     { title: 'Captura manual', href: '/captura-manual', icon: ClipboardList, section: 'manual_capture' },
     { title: 'Cuenta empresa', href: '/cuenta-empresa', icon: Scale, section: 'company_balance' },
@@ -61,7 +63,13 @@ export function AppSidebar({ collapsed = false, narrow = false, asDrawer = false
 
     const navItems = React.useMemo(() => {
         return allNavItems
-            .filter((item) => !item.section || canView(item.section))
+            .filter((item) => {
+                if (item.adminOnly && user?.role !== 'admin') {
+                    return false;
+                }
+
+                return !item.section || canView(item.section);
+            })
             .map((item) => {
                 if (!item.submenu?.length) {
                     return item;
@@ -72,7 +80,7 @@ export function AppSidebar({ collapsed = false, narrow = false, asDrawer = false
                 return visibleSubitems.length ? { ...item, submenu: visibleSubitems } : null;
             })
             .filter((item): item is NavItem => item !== null);
-    }, [hasPermission, canView]);
+    }, [hasPermission, canView, user?.role]);
 
     // Abrir automáticamente el submenú si alguna de sus rutas está activa
     // Solo se ejecuta cuando cambia el pathname, no cuando el usuario hace clic manualmente

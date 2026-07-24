@@ -15,6 +15,7 @@ use App\Http\Controllers\Reparto\RepartoController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\UserController;
+use App\Http\Controllers\TeamController;
 use App\Models\CashSession;
 use App\Services\UserSectionPermissionService;
 use App\Support\UserSection;
@@ -50,6 +51,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->middleware('section:'.UserSection::DASHBOARD.',view')
         ->name('dashboard');
+
+    Route::get('/equipo', [TeamController::class, 'index'])->name('team.index');
 
     Route::prefix('gasto')->name('gasto.')->middleware('section:'.UserSection::GASTO.',view')->group(function () {
         Route::get('/', [GastoController::class, 'index'])->name('index');

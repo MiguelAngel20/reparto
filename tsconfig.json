@@ -9,7 +9,6 @@
         "strict": true,
         "noImplicitAny": true,
         "skipLibCheck": true,
-        "baseUrl": ".",
         "paths": {
             "@/*": ["./resources/js/*"]
         },

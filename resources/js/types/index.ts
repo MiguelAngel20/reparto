@@ -11,6 +11,8 @@ export interface NavItem {
     onClick?: boolean;
     badge?: string;
     permission?: string | null;
+    /** Solo visible para usuarios con role admin */
+    adminOnly?: boolean;
     submenu?: {
         title: string;
         href: string;
