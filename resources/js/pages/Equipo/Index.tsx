@@ -21,15 +21,23 @@ type TeamMember = {
     company_name: string | null;
     has_open_shift: boolean;
     shift_started_at: string | null;
+    open_shift_days: number | null;
+    open_shift_days_label: string | null;
+    is_active_today: boolean;
+    has_stale_open_shift: boolean;
     active_orders_count: number;
     active_personal_services_count: number;
     status_key: 'delivering' | 'personal_service' | 'on_shift' | 'idle';
     status_label: string;
+    last_completed_shift_started_at: string | null;
+    last_completed_shift_ended_at: string | null;
 };
 
 type TeamSummary = {
     total_members: number;
     on_shift: number;
+    online_today: number;
+    stale_open_shifts: number;
     with_active_orders: number;
     with_active_services: number;
 };
@@ -48,13 +56,69 @@ const breadcrumbs: BreadcrumbItem[] = [
 const cardClass =
     'border border-slate-200/80 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626] sm:p-5';
 
-function statusBadgeVariant(
-    key: TeamMember['status_key'],
-): 'green' | 'blue' | 'amber' | 'gray' {
-    if (key === 'delivering') return 'green';
-    if (key === 'personal_service') return 'blue';
-    if (key === 'on_shift') return 'amber';
-    return 'gray';
+type ConnectionState = 'online' | 'stale_shift' | 'offline';
+
+function connectionState(member: TeamMember): ConnectionState {
+    if (!member.has_open_shift) {
+        return 'offline';
+    }
+
+    if (member.is_active_today) {
+        return 'online';
+    }
+
+    return 'stale_shift';
+}
+
+function ConnectionBadge({ state }: { state: ConnectionState }) {
+    if (state === 'online') {
+        return (
+            <Badge
+                variant="green"
+                className="bg-emerald-100 text-emerald-800 ring-emerald-200/80 dark:bg-emerald-950/45 dark:text-emerald-200 dark:ring-emerald-800"
+            >
+                En línea
+            </Badge>
+        );
+    }
+
+    if (state === 'stale_shift') {
+        return (
+            <Badge
+                variant="yellow"
+                className="bg-amber-100 text-amber-900 ring-amber-200/80 dark:bg-amber-950/45 dark:text-amber-200 dark:ring-amber-800"
+            >
+                Jornada sin cerrar
+            </Badge>
+        );
+    }
+
+    return (
+        <Badge
+            variant="gray"
+            className="bg-slate-200 text-slate-700 ring-slate-300/80 dark:bg-slate-700/50 dark:text-slate-100 dark:ring-slate-600"
+        >
+            Desconectado
+        </Badge>
+    );
+}
+
+function activityHint(member: TeamMember): string | null {
+    if (!member.has_open_shift) {
+        return null;
+    }
+
+    if (member.active_orders_count > 0) {
+        const n = member.active_orders_count;
+        return `Repartiendo · ${n} pedido${n !== 1 ? 's' : ''} activo${n !== 1 ? 's' : ''}`;
+    }
+
+    if (member.active_personal_services_count > 0) {
+        const n = member.active_personal_services_count;
+        return `Servicio propio · ${n} activo${n !== 1 ? 's' : ''}`;
+    }
+
+    return 'En jornada, sin pedido ni servicio activo';
 }
 
 function SummaryStat({
@@ -90,14 +154,18 @@ export default function EquipoIndex({
 
     const activeFirst = [...members].sort((a, b) => {
         const rank = (m: TeamMember) => {
-            if (m.status_key === 'delivering') return 0;
-            if (m.status_key === 'personal_service') return 1;
-            if (m.status_key === 'on_shift') return 2;
-            return 3;
+            const state = connectionState(m);
+            if (state === 'online') return 0;
+            if (state === 'stale_shift') return 1;
+            return 2;
         };
 
         const diff = rank(a) - rank(b);
         if (diff !== 0) return diff;
+
+        if (a.has_stale_open_shift && b.has_stale_open_shift) {
+            return (b.open_shift_days ?? 0) - (a.open_shift_days ?? 0);
+        }
 
         return a.name.localeCompare(b.name, 'es');
     });
@@ -113,9 +181,11 @@ export default function EquipoIndex({
                             Equipo
                         </h1>
                         <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                            Estado de jornadas, pedidos y servicios propios en curso. Actualiza la
-                            página cuando quieras ver datos recientes; no se envían consultas extra
-                            a los dispositivos del equipo.
+                            <strong className="font-semibold text-slate-600 dark:text-slate-300">
+                                En línea
+                            </strong>{' '}
+                            solo si la jornada se abrió hoy. Si quedó abierta días atrás, no
+                            significa que esté usando la app ahora: probablemente olvidó cerrarla.
                         </p>
                         <p className="mt-2 text-xs text-slate-400">
                             Datos al {generated_at}
@@ -131,15 +201,20 @@ export default function EquipoIndex({
                     </button>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     <SummaryStat
                         label="Personas en el equipo"
                         value={summary.total_members}
                         icon={Users}
                     />
                     <SummaryStat
-                        label="En jornada"
-                        value={summary.on_shift}
+                        label="En línea (jornada de hoy)"
+                        value={summary.online_today}
+                        icon={UserRound}
+                    />
+                    <SummaryStat
+                        label="Jornada sin cerrar (días atrás)"
+                        value={summary.stale_open_shifts}
                         icon={UserRound}
                     />
                     <SummaryStat
@@ -165,7 +240,11 @@ export default function EquipoIndex({
                         </p>
                     ) : (
                         <ul className="mt-4 space-y-2">
-                            {activeFirst.map((member) => (
+                            {activeFirst.map((member) => {
+                                const hint = activityHint(member);
+                                const state = connectionState(member);
+
+                                return (
                                 <li
                                     key={member.id}
                                     className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]/50"
@@ -177,9 +256,7 @@ export default function EquipoIndex({
                                                     {member.name}
                                                 </p>
                                                 <Badge variant="gray">{member.role_label}</Badge>
-                                                <Badge variant={statusBadgeVariant(member.status_key)}>
-                                                    {member.status_label}
-                                                </Badge>
+                                                <ConnectionBadge state={state} />
                                             </div>
                                             <p className="mt-0.5 truncate text-xs text-slate-500">
                                                 {member.email}
@@ -194,9 +271,52 @@ export default function EquipoIndex({
                                                         {member.shift_started_at
                                                             ? ` desde ${member.shift_started_at}`
                                                             : ''}
+                                                        {member.open_shift_days_label && (
+                                                            <span
+                                                                className={cn(
+                                                                    'font-medium',
+                                                                    member.has_stale_open_shift
+                                                                        ? ' text-amber-700 dark:text-amber-300'
+                                                                        : ' text-slate-600 dark:text-slate-300',
+                                                                )}
+                                                            >
+                                                                {' '}
+                                                                · {member.open_shift_days_label}
+                                                            </span>
+                                                        )}
+                                                        {member.has_stale_open_shift && (
+                                                            <span className="mt-1 block text-amber-800 dark:text-amber-200/90">
+                                                                Es poco probable que esté usando la
+                                                                app; conviene que cierre esa jornada
+                                                                o la revises contigo.
+                                                            </span>
+                                                        )}
+                                                        {hint && (
+                                                            <span className="block mt-0.5 text-slate-500">
+                                                                {hint}
+                                                            </span>
+                                                        )}
                                                     </>
                                                 ) : (
                                                     'Sin jornada abierta'
+                                                )}
+                                            </p>
+                                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                                {member.last_completed_shift_started_at &&
+                                                member.last_completed_shift_ended_at ? (
+                                                    <>
+                                                        Última jornada completada: inicio{' '}
+                                                        <span className="font-medium text-slate-600 dark:text-slate-300">
+                                                            {member.last_completed_shift_started_at}
+                                                        </span>
+                                                        {' · '}
+                                                        cierre{' '}
+                                                        <span className="font-medium text-slate-600 dark:text-slate-300">
+                                                            {member.last_completed_shift_ended_at}
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    'Aún no tiene una jornada cerrada con éxito.'
                                                 )}
                                             </p>
                                         </div>
@@ -234,7 +354,8 @@ export default function EquipoIndex({
                                         </div>
                                     </div>
                                 </li>
-                            ))}
+                                );
+                            })}
                         </ul>
                     )}
                 </Card>
