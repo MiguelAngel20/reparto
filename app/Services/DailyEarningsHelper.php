@@ -86,11 +86,17 @@ class DailyEarningsHelper
         $personalServices = self::personalServicesForUserOnDate($userId, $date);
         $totalExpenses = self::expensesForUserOnDate($userId, $date);
         $todayEarnings = round($personalServices, 2);
+        $personalServicesCount = (int) PersonalService::query()
+            ->where('user_id', $userId)
+            ->whereDate('service_date', $date)
+            ->completed()
+            ->count();
 
         return [
             'today_earnings' => $todayEarnings,
             'session_earnings' => 0.0,
             'personal_services' => $personalServices,
+            'personal_services_count' => $personalServicesCount,
             'total_expenses' => $totalExpenses,
             'net_earnings' => round($todayEarnings - $totalExpenses, 2),
             'completed_orders_today' => 0,
@@ -99,11 +105,25 @@ class DailyEarningsHelper
         ];
     }
 
+    public static function completedPersonalServicesCountForUserBetween(
+        int $userId,
+        string $start,
+        string $end,
+    ): int {
+        return (int) PersonalService::query()
+            ->where('user_id', $userId)
+            ->whereDate('service_date', '>=', $start)
+            ->whereDate('service_date', '<=', $end)
+            ->completed()
+            ->count();
+    }
+
     /**
      * @return array{
      *     today_earnings: float,
      *     session_earnings: float,
      *     personal_services: float,
+     *     personal_services_count: int,
      *     total_expenses: float,
      *     net_earnings: float,
      *     completed_orders_today: int,
@@ -125,6 +145,7 @@ class DailyEarningsHelper
             'today_earnings' => $todayEarnings,
             'session_earnings' => round($sessionEarnings, 2),
             'personal_services' => $personalServices,
+            'personal_services_count' => (int) self::personalServicesQueryForSession($session)->count(),
             'total_expenses' => $totalExpenses,
             'net_earnings' => round($todayEarnings - $totalExpenses, 2),
             'completed_orders_today' => $completedOrdersToday,
@@ -250,6 +271,7 @@ class DailyEarningsHelper
             'today_earnings' => $todayEarnings,
             'session_earnings' => round($sessionEarnings, 2),
             'personal_services' => $personalServices,
+            'personal_services_count' => self::completedPersonalServicesCountForUserBetween($userId, $start, $end),
             'total_expenses' => $totalExpenses,
             'net_earnings' => round($todayEarnings - $totalExpenses, 2),
             'completed_orders_today' => $completedOrders,
@@ -285,11 +307,17 @@ class DailyEarningsHelper
         $personalServices = self::personalServicesForUserOnDate($userId, $date);
         $totalExpenses = self::expensesForUserOnDate($userId, $date);
         $todayEarnings = round($personalServices, 2);
+        $personalServicesCount = (int) PersonalService::query()
+            ->where('user_id', $userId)
+            ->whereDate('service_date', $date)
+            ->completed()
+            ->count();
 
         return [
             'today_earnings' => $todayEarnings,
             'session_earnings' => 0.0,
             'personal_services' => $personalServices,
+            'personal_services_count' => $personalServicesCount,
             'total_expenses' => $totalExpenses,
             'net_earnings' => round($todayEarnings - $totalExpenses, 2),
             'completed_orders_today' => 0,

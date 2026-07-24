@@ -9,7 +9,7 @@ import {
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSectionPermissions } from '@/hooks/useSectionAccess';
 import { cn } from '@/lib/utils';
-import { Briefcase, ClipboardList, CreditCard, LayoutGrid, LogOut, Package, Receipt, Scale, Settings } from 'lucide-react';
+import { Briefcase, ClipboardList, CreditCard, LayoutGrid, LogOut, Package, Receipt, Scale, Settings, UsersRound } from 'lucide-react';
 
 const navItems = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, section: 'dashboard' as const },
@@ -99,6 +99,14 @@ export function AppBottomNav() {
                         sideOffset={10}
                         className="min-w-[190px] border-slate-200 bg-white text-slate-900 dark:border-[#343434] dark:bg-[#262626] dark:text-white"
                     >
+                        {user?.role === 'admin' && (
+                            <DropdownMenuItem asChild className={profileMenuItemClass}>
+                                <Link href="/equipo" className={profileMenuItemClass}>
+                                    <UsersRound className="h-4 w-4" />
+                                    Equipo
+                                </Link>
+                            </DropdownMenuItem>
+                        )}
                         {canView('gasto') && (
                             <DropdownMenuItem asChild className={profileMenuItemClass}>
                                 <Link href="/gasto" className={profileMenuItemClass}>

@@ -17,9 +17,7 @@ class TeamOverviewService
      *         total_members: int,
      *         on_shift: int,
      *         online_today: int,
-     *         stale_open_shifts: int,
-     *         with_active_orders: int,
-     *         with_active_services: int
+     *         stale_open_shifts: int
      *     },
      *     members: list<array{
      *         id: int,
@@ -34,16 +32,21 @@ class TeamOverviewService
      *         open_shift_days_label: string|null,
      *         is_active_today: bool,
      *         has_stale_open_shift: bool,
-     *         active_orders_count: int,
-     *         active_personal_services_count: int,
+     *         is_repartiendo: bool,
+     *         repartiendo_label: string,
      *         status_key: string,
      *         status_label: string,
      *         last_completed_shift_started_at: string|null,
-     *         last_completed_shift_ended_at: string|null
+     *         last_completed_shift_ended_at: string|null,
+     *         period_net_earnings: float,
+     *         period_company_orders_count: int,
+     *         period_personal_services_count: int,
+     *         work_duration_seconds: int,
+     *         work_duration_formatted: string
      *     }>
      * }
      */
-    public function snapshot(): array
+    public function snapshot(string $dateFrom, string $dateTo): array
     {
         $users = User::query()
             ->where('role', '!=', User::ROLE_ADMIN)
@@ -89,14 +92,19 @@ class TeamOverviewService
             $lastCompletedShiftByUserId,
             $activeOrdersByUser,
             $activeServicesByUser,
+            $dateFrom,
+            $dateTo,
         ) {
             $session = $sessionByUserId->get($user->id);
             $lastCompleted = $lastCompletedShiftByUserId->get($user->id);
             $activeOrders = (int) ($activeOrdersByUser[$user->id] ?? 0);
             $activeServices = (int) ($activeServicesByUser[$user->id] ?? 0);
+            $isRepartiendo = $activeOrders > 0 || $activeServices > 0;
             $hasOpenShift = $session !== null;
             $openShiftDays = $this->openShiftDays($session);
             $status = $this->memberStatus($hasOpenShift, $activeOrders, $activeServices);
+            $periodSummary = DailyEarningsHelper::summaryForUserInRange($user->id, $dateFrom, $dateTo);
+            $workSeconds = TeamWorkDuration::totalSecondsForUserInRange($user->id, $dateFrom, $dateTo);
 
             return [
                 'id' => $user->id,
@@ -111,20 +119,23 @@ class TeamOverviewService
                 'open_shift_days_label' => $this->openShiftDaysLabel($openShiftDays),
                 'is_active_today' => $hasOpenShift && $openShiftDays === 0,
                 'has_stale_open_shift' => $hasOpenShift && $openShiftDays !== null && $openShiftDays > 0,
-                'active_orders_count' => $activeOrders,
-                'active_personal_services_count' => $activeServices,
+                'is_repartiendo' => $isRepartiendo,
+                'repartiendo_label' => $isRepartiendo ? 'Repartiendo' : 'Sin pedido en curso',
                 'status_key' => $status['key'],
                 'status_label' => $status['label'],
                 'last_completed_shift_started_at' => $lastCompleted?->started_at?->format('d/m/Y H:i'),
                 'last_completed_shift_ended_at' => $lastCompleted?->ended_at?->format('d/m/Y H:i'),
+                'period_net_earnings' => (float) $periodSummary['net_earnings'],
+                'period_company_orders_count' => (int) ($periodSummary['completed_orders_today'] ?? 0),
+                'period_personal_services_count' => (int) ($periodSummary['personal_services_count'] ?? 0),
+                'work_duration_seconds' => $workSeconds,
+                'work_duration_formatted' => TeamWorkDuration::formattedLabel($workSeconds),
             ];
         })->values()->all();
 
         $onShift = collect($members)->where('has_open_shift', true)->count();
         $onlineToday = collect($members)->where('is_active_today', true)->count();
         $staleOpenShifts = collect($members)->where('has_stale_open_shift', true)->count();
-        $withOrders = collect($members)->where('active_orders_count', '>', 0)->count();
-        $withServices = collect($members)->where('active_personal_services_count', '>', 0)->count();
 
         return [
             'generated_at' => now()->format('d/m/Y H:i'),
@@ -133,8 +144,6 @@ class TeamOverviewService
                 'on_shift' => $onShift,
                 'online_today' => $onlineToday,
                 'stale_open_shifts' => $staleOpenShifts,
-                'with_active_orders' => $withOrders,
-                'with_active_services' => $withServices,
             ],
             'members' => $members,
         ];

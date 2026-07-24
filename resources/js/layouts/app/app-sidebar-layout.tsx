@@ -91,7 +91,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [], title, fu
                 <AppSidebar collapsed={sidebarCollapsed} narrow={isNarrow} />
             )}
 
-            {isMobile && !isPhone && (
+            {isMobile && (
                 <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                     <SheetContent side="left" showCloseButton={false} className="w-72 max-w-[85vw] p-0">
                         <AppSidebar
@@ -112,7 +112,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [], title, fu
                     sidebarCollapsed={sidebarCollapsed}
                     onToggleSidebar={!isMobile ? () => setSidebarCollapsed((prev) => !prev) : undefined}
                     isMobile={isMobile}
-                    onOpenMobileMenu={isMobile && !isPhone ? () => setMobileMenuOpen(true) : undefined}
+                    onOpenMobileMenu={isMobile ? () => setMobileMenuOpen(true) : undefined}
                 />
 
                 <div className="flex-1">
