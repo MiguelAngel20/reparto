@@ -55,6 +55,7 @@ class UserSectionPermissionService
             UserSection::MANUAL_CAPTURE => ['can_view' => true, 'can_edit' => true],
             UserSection::GASTO => ['can_view' => true, 'can_edit' => true],
             UserSection::PERSONAL_SERVICE => ['can_view' => true, 'can_edit' => true],
+            UserSection::CONTACTS => ['can_view' => true, 'can_edit' => false],
             UserSection::COMPANY_BALANCE => ['can_view' => false, 'can_edit' => false],
             UserSection::CARD_ACCOUNT => [
                 'can_view' => false,
@@ -267,6 +268,7 @@ class UserSectionPermissionService
             UserSection::REPARTO => 'reparto.index',
             UserSection::MANUAL_CAPTURE => 'manual-capture.index',
             UserSection::GASTO => 'gasto.index',
+            UserSection::CONTACTS => 'contacts.index',
             UserSection::PERSONAL_SERVICE => 'personal-service.index',
             UserSection::COMPANY_BALANCE => 'company-balance.index',
             UserSection::CARD_ACCOUNT => 'card-account.index',

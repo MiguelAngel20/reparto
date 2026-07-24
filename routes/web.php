@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CardAccountController;
 use App\Http\Controllers\CompanyBalanceController;
 use App\Http\Controllers\DashboardController;
@@ -53,6 +54,16 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard');
 
     Route::get('/equipo', [TeamController::class, 'index'])->name('team.index');
+
+    Route::prefix('contactos')->name('contacts.')->middleware('section:'.UserSection::CONTACTS.',view')->group(function () {
+        Route::get('/', [ContactController::class, 'index'])->name('index');
+        Route::get('/{contact}', [ContactController::class, 'show'])->name('show');
+        Route::post('/', [ContactController::class, 'store'])->name('store');
+        Route::middleware('section:'.UserSection::CONTACTS.',edit')->group(function () {
+            Route::put('/{contact}', [ContactController::class, 'update'])->name('update');
+            Route::delete('/{contact}', [ContactController::class, 'destroy'])->name('destroy');
+        });
+    });
 
     Route::prefix('gasto')->name('gasto.')->middleware('section:'.UserSection::GASTO.',view')->group(function () {
         Route::get('/', [GastoController::class, 'index'])->name('index');

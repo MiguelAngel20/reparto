@@ -27,7 +27,8 @@ export type SectionKey =
     | 'company_balance'
     | 'gasto'
     | 'card_account'
-    | 'personal_service';
+    | 'personal_service'
+    | 'contacts';
 
 export interface SharedData {
     auth?: {

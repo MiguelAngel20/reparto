@@ -18,6 +18,8 @@ class UserSection
 
     public const PERSONAL_SERVICE = 'personal_service';
 
+    public const CONTACTS = 'contacts';
+
     /**
      * @return list<string>
      */
@@ -31,6 +33,7 @@ class UserSection
             self::GASTO,
             self::CARD_ACCOUNT,
             self::PERSONAL_SERVICE,
+            self::CONTACTS,
         ];
     }
 
@@ -47,6 +50,7 @@ class UserSection
             self::GASTO => 'Gasto',
             self::CARD_ACCOUNT => 'Cuenta tarjeta',
             self::PERSONAL_SERVICE => 'Mis servicios',
+            self::CONTACTS => 'Contactos',
         ];
     }
 

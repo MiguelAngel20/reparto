@@ -9,12 +9,12 @@ import {
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSectionPermissions } from '@/hooks/useSectionAccess';
 import { cn } from '@/lib/utils';
-import { Briefcase, ClipboardList, CreditCard, LayoutGrid, LogOut, Package, Receipt, Scale, Settings, UsersRound } from 'lucide-react';
+import { Briefcase, ClipboardList, ContactRound, CreditCard, LayoutGrid, LogOut, Package, Receipt, Scale, Settings, UsersRound } from 'lucide-react';
 
 const navItems = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, section: 'dashboard' as const },
     { title: 'Jornada', href: '/reparto', icon: Package, section: 'reparto' as const },
-    { title: 'Captura', href: '/captura-manual', icon: ClipboardList, section: 'manual_capture' as const },
+    { title: 'Contactos', href: '/contactos', icon: ContactRound, section: 'contacts' as const },
     { title: 'Cuenta', href: '/cuenta-empresa', icon: Scale, section: 'company_balance' as const },
 ];
 
@@ -104,6 +104,14 @@ export function AppBottomNav() {
                                 <Link href="/equipo" className={profileMenuItemClass}>
                                     <UsersRound className="h-4 w-4" />
                                     Equipo
+                                </Link>
+                            </DropdownMenuItem>
+                        )}
+                        {canView('manual_capture') && (
+                            <DropdownMenuItem asChild className={profileMenuItemClass}>
+                                <Link href="/captura-manual" className={profileMenuItemClass}>
+                                    <ClipboardList className="h-4 w-4" />
+                                    Captura manual
                                 </Link>
                             </DropdownMenuItem>
                         )}

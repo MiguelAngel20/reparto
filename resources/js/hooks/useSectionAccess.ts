@@ -53,6 +53,20 @@ export function useSectionAccess(section: SectionKey) {
         };
     }
 
+    if (section === 'contacts') {
+        const simple = access && 'edit' in access ? access : { view: false, edit: false };
+
+        return {
+            canView: isAdmin || simple.view,
+            canEdit: isAdmin || simple.edit,
+            canCreate: isAdmin || simple.view,
+            canUpdate: isAdmin || simple.edit,
+            canDelete: isAdmin || simple.edit,
+            canPayment: false,
+            canRealDeposit: false,
+        };
+    }
+
     const simple = access && 'edit' in access ? access : { view: false, edit: false };
 
     return {
