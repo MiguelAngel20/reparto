@@ -14,14 +14,17 @@ import {
 type RegisterField = keyof AuthErrors;
 
 export default function Register() {
-    const { flash } = usePage().props as {
+    const { flash, errors: pageErrors } = usePage().props as {
         flash?: {
             registration_complete?: boolean;
             registered_email?: string;
+            verification_resent?: boolean;
         };
+        errors?: AuthErrors;
     };
 
     const registrationComplete = !!flash?.registration_complete;
+    const verificationResent = !!flash?.verification_resent;
     const registeredEmail = flash?.registered_email ?? '';
 
     const [showPassword, setShowPassword] = React.useState(false);
@@ -44,7 +47,7 @@ export default function Register() {
         if (bannerMessage && (field === 'password' || field === 'password_confirmation')) {
             return undefined;
         }
-        return errors[field];
+        return errors[field] ?? pageErrors?.[field];
     };
 
     const clearBanner = () => {
@@ -93,7 +96,15 @@ export default function Register() {
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-white p-4">
-            <Head title={registrationComplete ? 'Registro exitoso' : 'Registrarse'} />
+            <Head
+                title={
+                    registrationComplete
+                        ? verificationResent
+                            ? 'Verificación reenviada'
+                            : 'Registro exitoso'
+                        : 'Registrarse'
+                }
+            />
 
             <div className="w-full max-w-md">
                 <div className="mb-6 flex w-full justify-center">
@@ -107,10 +118,12 @@ export default function Register() {
                                 <CheckCircle2 className="h-8 w-8 text-emerald-600" />
                             </div>
                             <h1 className="mb-2 text-2xl font-bold text-slate-900">
-                                Registro exitoso
+                                {verificationResent ? 'Cuenta pendiente de verificación' : 'Registro exitoso'}
                             </h1>
                             <p className="text-sm text-slate-600">
-                                Revisa tu correo para verificar tu correo electrónico.
+                                {verificationResent
+                                    ? 'Este correo ya tiene una cuenta registrada que aún no fue verificada. Te enviamos un nuevo enlace de verificación.'
+                                    : 'Revisa tu correo para verificar tu correo electrónico.'}
                             </p>
                             {registeredEmail && (
                                 <p className="mt-3 text-sm font-semibold text-slate-800">

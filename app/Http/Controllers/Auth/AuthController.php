@@ -222,6 +222,32 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
 
+        /** @var User|null $existingUser */
+        $existingUser = User::query()->where('email', $validated['email'])->first();
+
+        if ($existingUser && ! $existingUser->hasVerifiedEmail()) {
+            $existingUser->update([
+                'name' => $validated['name'],
+                'password' => $validated['password'],
+            ]);
+
+            try {
+                $this->sendRegisterVerificationEmail($existingUser);
+            } catch (\Throwable $e) {
+                report($e);
+
+                return back()->withErrors([
+                    'email' => 'No se pudo enviar el correo de verificación. Intenta más tarde.',
+                ])->onlyInput('name', 'email');
+            }
+
+            return redirect()
+                ->route('register')
+                ->with('registration_complete', true)
+                ->with('registered_email', $existingUser->email)
+                ->with('verification_resent', true);
+        }
+
         $user = User::query()->create([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -253,8 +279,8 @@ class AuthController extends Controller
     public function verifyEmail(Request $request, int $id, string $hash): RedirectResponse
     {
         if (! $request->hasValidSignature()) {
-            return redirect()->route('login')->withErrors([
-                'email' => 'El enlace de verificación no es válido o expiró. Regístrate de nuevo o contacta soporte.',
+            return redirect()->route('register')->withErrors([
+                'email' => 'El enlace de verificación no es válido o expiró. Vuelve a registrarte con el mismo correo para recibir uno nuevo.',
             ]);
         }
 
