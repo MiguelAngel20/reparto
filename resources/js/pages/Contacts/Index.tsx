@@ -14,7 +14,7 @@ import Button from '@/components/ui/Button';
 import { useSectionAccess } from '@/hooks/useSectionAccess';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { ContactRound, Plus, Search } from 'lucide-react';
+import { Check, ContactRound, Plus, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -96,10 +96,10 @@ export default function ContactsIndex({ contacts, search: initialSearch }: Conta
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs} title="Contactos">
+        <AppLayout breadcrumbs={breadcrumbs} title="Contactos" fullWidth>
             <Head title="Contactos" />
 
-            <div className="mx-auto w-full max-w-2xl space-y-4 pb-24 sm:pb-6">
+            <div className="w-full space-y-4 pb-24 sm:pb-6">
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">
@@ -132,7 +132,7 @@ export default function ContactsIndex({ contacts, search: initialSearch }: Conta
                     />
                 </div>
 
-                <div className="rounded-xl border border-slate-200/80 bg-white px-3 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626] sm:px-4">
+                <div className="rounded-xl border border-slate-200/80 bg-white px-0 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626]">
                     {contacts.length === 0 ? (
                         <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                             {search.trim()
@@ -199,11 +199,21 @@ export default function ContactsIndex({ contacts, search: initialSearch }: Conta
                             onChange={(file) => setImageFile(file)}
                         />
                         <DialogFooter className="gap-2 sm:gap-0">
-                            <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
+                            <Button
+                                type="button"
+                                variant="danger"
+                                leftIcon={<X className="h-4 w-4" />}
+                                onClick={() => setModalOpen(false)}
+                            >
                                 Cancelar
                             </Button>
-                            <Button type="submit" loading={form.processing}>
-                                Guardar
+                            <Button
+                                type="submit"
+                                variant="info"
+                                leftIcon={<Check className="h-4 w-4" />}
+                                loading={form.processing}
+                            >
+                                Agregar
                             </Button>
                         </DialogFooter>
                     </form>

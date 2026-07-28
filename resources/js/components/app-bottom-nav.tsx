@@ -9,7 +9,7 @@ import {
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSectionPermissions } from '@/hooks/useSectionAccess';
 import { cn } from '@/lib/utils';
-import { Briefcase, ClipboardList, ContactRound, CreditCard, LayoutGrid, LogOut, Package, Receipt, Scale, Settings, UsersRound } from 'lucide-react';
+import { ContactRound, LayoutGrid, LogOut, Package, Scale, Settings } from 'lucide-react';
 
 const navItems = [
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid, section: 'dashboard' as const },
@@ -99,52 +99,6 @@ export function AppBottomNav() {
                         sideOffset={10}
                         className="min-w-[190px] border-slate-200 bg-white text-slate-900 dark:border-[#343434] dark:bg-[#262626] dark:text-white"
                     >
-                        {user?.role === 'admin' && (
-                            <DropdownMenuItem asChild className={profileMenuItemClass}>
-                                <Link href="/equipo" className={profileMenuItemClass}>
-                                    <UsersRound className="h-4 w-4" />
-                                    Equipo
-                                </Link>
-                            </DropdownMenuItem>
-                        )}
-                        {canView('manual_capture') && (
-                            <DropdownMenuItem asChild className={profileMenuItemClass}>
-                                <Link href="/captura-manual" className={profileMenuItemClass}>
-                                    <ClipboardList className="h-4 w-4" />
-                                    Captura manual
-                                </Link>
-                            </DropdownMenuItem>
-                        )}
-                        {canView('gasto') && (
-                            <DropdownMenuItem asChild className={profileMenuItemClass}>
-                                <Link href="/gasto" className={profileMenuItemClass}>
-                                    <Receipt className="h-4 w-4" />
-                                    Gasto
-                                </Link>
-                            </DropdownMenuItem>
-                        )}
-                        {canView('personal_service') && (
-                            <DropdownMenuItem asChild className={profileMenuItemClass}>
-                                <Link
-                                    href="/mis-servicios"
-                                    className={profileMenuItemClass}
-                                >
-                                    <Briefcase className="h-4 w-4" />
-                                    Mis servicios
-                                </Link>
-                            </DropdownMenuItem>
-                        )}
-                        {canView('card_account') && (
-                            <DropdownMenuItem asChild className={profileMenuItemClass}>
-                                <Link
-                                    href="/cuenta-tarjeta"
-                                    className={profileMenuItemClass}
-                                >
-                                    <CreditCard className="h-4 w-4" />
-                                    Cuenta tarjeta
-                                </Link>
-                            </DropdownMenuItem>
-                        )}
                         <DropdownMenuItem asChild className={profileMenuItemClass}>
                             <Link
                                 href={

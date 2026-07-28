@@ -22,25 +22,27 @@ export function ContactListRow({ contact, className }: Props) {
     return (
         <div
             className={cn(
-                'flex items-center gap-3 border-b border-slate-100 px-1 py-3 last:border-b-0 dark:border-[#2b2b2b]',
+                'flex items-center gap-2 border-b border-slate-100 px-0 py-2 last:border-b-0 dark:border-[#2b2b2b]',
                 className,
             )}
         >
             <Link
                 href={`/contactos/${contact.id}`}
-                className="flex min-w-0 flex-1 items-center gap-3"
+                className="flex min-w-0 flex-1 items-center gap-2"
             >
-                <Avatar className="h-12 w-12 shrink-0 border border-slate-200 dark:border-[#343434]">
+                <Avatar className="h-9 w-9 shrink-0 border border-slate-200 dark:border-[#343434]">
                     {contact.image_url ? (
                         <AvatarImage src={contact.image_url} alt={contact.name} className="object-cover" />
                     ) : null}
-                    <AvatarFallback className="bg-sidebar-active text-sm font-bold text-white">
+                    <AvatarFallback className="bg-sidebar-active text-[10px] font-bold text-white">
                         {contact.initials}
                     </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-slate-900 dark:text-white">{contact.name}</p>
-                    <p className="truncate text-sm text-slate-500 dark:text-slate-400">{contact.phone}</p>
+                    <p className="truncate text-sm font-semibold leading-tight text-slate-900 dark:text-white">
+                        {contact.name}
+                    </p>
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">{contact.phone}</p>
                 </div>
             </Link>
 
@@ -48,11 +50,11 @@ export function ContactListRow({ contact, className }: Props) {
                 {contact.tel_href ? (
                     <a
                         href={contact.tel_href}
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-sidebar-active hover:bg-slate-100 dark:hover:bg-white/10"
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-sidebar-active hover:bg-slate-100 dark:hover:bg-white/10"
                         aria-label={`Llamar a ${contact.name}`}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <Phone className="h-5 w-5" />
+                        <Phone className="h-4 w-4" />
                     </a>
                 ) : null}
                 {contact.whatsapp_href ? (
@@ -60,11 +62,11 @@ export function ContactListRow({ contact, className }: Props) {
                         href={contact.whatsapp_href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
                         aria-label={`WhatsApp ${contact.name}`}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <MessageCircle className="h-5 w-5" />
+                        <MessageCircle className="h-4 w-4" />
                     </a>
                 ) : null}
             </div>

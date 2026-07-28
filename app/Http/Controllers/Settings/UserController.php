@@ -109,6 +109,8 @@ class UserController extends Controller
             'percentage' => (float) $user->percentage,
             'role' => $user->role,
             'role_label' => User::roleLabel($user->role),
+            'email_verified' => $user->hasVerifiedEmail(),
+            'email_verified_at' => $user->email_verified_at?->format('d/m/Y H:i'),
             'created_at' => $user->created_at?->format('d/m/Y H:i'),
         ];
     }

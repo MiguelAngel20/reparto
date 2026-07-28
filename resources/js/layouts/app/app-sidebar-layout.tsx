@@ -119,7 +119,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [], title, fu
                     {sidebar ? (
                         // ≥1024px: sidebar fijo a la izquierda, contenido desplazable a la derecha.
                         // <1024px: submenú arriba, contenido abajo a ancho completo.
-                        <div className="flex flex-col gap-6 px-6 py-6 lg:flex-row">
+                        <div className="flex flex-col gap-6 px-[5px] py-4 sm:px-6 sm:py-6 lg:flex-row">
                             <aside className="w-full shrink-0 lg:w-56 lg:sticky lg:top-24 self-start">
                                 {sidebar}
                             </aside>

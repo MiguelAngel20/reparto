@@ -123,10 +123,10 @@ export default function ContactsShow({ contact }: ContactsShowProps) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs} title={contact.name}>
+        <AppLayout breadcrumbs={breadcrumbs} title={contact.name} fullWidth>
             <Head title={contact.name} />
 
-            <div className="mx-auto w-full max-w-lg space-y-6 pb-24 sm:pb-8">
+            <div className="w-full space-y-6 pb-24 sm:pb-8">
                 <Link
                     href="/contactos"
                     className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"

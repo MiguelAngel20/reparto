@@ -12,7 +12,12 @@ interface AppContentProps {
 export function AppContent({ children, breadcrumbs = [], title, fullWidth = false, compact = false }: AppContentProps) {
     return (
         // El main no impone fondo: hereda el de AppShell para evitar cortes
-        <main className={cn('flex-1 overflow-y-auto bg-transparent transition-colors duration-300 dark:bg-transparent', compact ? 'px-0 py-0' : 'px-8 py-10')}>
+        <main
+            className={cn(
+                'flex-1 overflow-y-auto bg-transparent transition-colors duration-300 dark:bg-transparent',
+                compact ? 'px-0 py-0' : 'px-[5px] py-6 sm:px-6 sm:py-8 md:px-8 md:py-10',
+            )}
+        >
             <div className={cn('flex w-full flex-col gap-6', fullWidth ? '' : 'mx-auto max-w-7xl')}>
                 {/* Sin contenedor adicional: dejamos que cada página decida su propio borde/fondo */}
                 <div>{children}</div>

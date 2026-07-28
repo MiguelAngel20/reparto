@@ -65,6 +65,8 @@ export interface ButtonProps
      * solo se filtra para evitar que llegue al DOM como atributo inválido.
      */
     asChild?: boolean;
+    /** Deshabilita el botón mientras una acción está en curso */
+    loading?: boolean;
 }
 
 /**
@@ -92,7 +94,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             tooltip,
             label,
             title,
+            loading = false,
             'aria-label': ariaLabel,
+            disabled,
             ...props
         },
         ref
@@ -105,12 +109,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         const buttonSize = iconOnly ? 'icon' : size;
 
         // Filtrar props que no son válidos para elementos HTML button
-        const { loading, asChild, ...buttonProps } = props as any;
+        const { asChild, ...buttonProps } = props;
 
         const content = (
             <button
                 ref={ref}
                 {...buttonProps}
+                disabled={disabled || loading}
                 className={cn(buttonVariants({ variant, size: buttonSize }), className)}
                 title={effectiveTitle}
                 aria-label={effectiveAriaLabel}

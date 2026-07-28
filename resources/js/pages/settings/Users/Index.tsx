@@ -16,6 +16,8 @@ type UserRow = {
     percentage: number;
     role: string;
     role_label: string;
+    email_verified: boolean;
+    email_verified_at: string | null;
     created_at: string;
 };
 
@@ -75,6 +77,23 @@ export default function UsersIndex({ users, filters }: UsersPageProps) {
             render: (row) => (
                 <Badge variant={roleBadgeVariant(row.role)}>{row.role_label}</Badge>
             ),
+        },
+        {
+            key: 'email_verified',
+            label: 'Correo verificado',
+            render: (row) =>
+                row.email_verified ? (
+                    <div className="flex flex-col gap-0.5">
+                        <Badge variant="green">Verificado</Badge>
+                        {row.email_verified_at ? (
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                {row.email_verified_at}
+                            </span>
+                        ) : null}
+                    </div>
+                ) : (
+                    <Badge variant="yellow">Pendiente</Badge>
+                ),
         },
         { key: 'created_at', label: 'Registro' },
         {
