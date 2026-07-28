@@ -106,9 +106,6 @@ export default function ContactsIndex({ contacts, search: initialSearch }: Conta
                             <ContactRound className="h-6 w-6 text-sidebar-active" />
                             Contactos
                         </h1>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Directorio compartido del equipo. Todos pueden agregar; solo admin edita o elimina.
-                        </p>
                     </div>
                     {canCreate ? (
                         <Button
