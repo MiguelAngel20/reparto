@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\PersonalService\StorePersonalServiceRequest;
 use App\Http\Requests\PersonalService\UpdatePersonalServiceRequest;
+use App\Models\CashSession;
 use App\Models\PersonalService;
 use App\Services\DailyEarningsHelper;
 use App\Support\DateRangeQuery;
@@ -52,7 +53,7 @@ class PersonalServiceController extends Controller
     {
         PersonalService::query()->create([
             'user_id' => $request->user()->id,
-            'service_date' => now()->toDateString(),
+            'service_date' => CashSession::activityBookingDateForUser($request->user()->id),
             'status' => PersonalService::STATUS_COMPLETED,
             'name' => trim($request->validated('name')),
             'amount' => round((float) $request->validated('amount'), 2),

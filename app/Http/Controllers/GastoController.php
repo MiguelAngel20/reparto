@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Gasto\StoreDailyExpenseRequest;
 use App\Http\Requests\Gasto\UpdateDailyExpenseRequest;
+use App\Models\CashSession;
 use App\Models\DailyExpense;
 use App\Services\DailyEarningsHelper;
 use App\Support\DateRangeQuery;
@@ -49,7 +50,7 @@ class GastoController extends Controller
     {
         DailyExpense::query()->create([
             'user_id' => $request->user()->id,
-            'expense_date' => now()->toDateString(),
+            'expense_date' => CashSession::activityBookingDateForUser($request->user()->id),
             'name' => trim($request->validated('name')),
             'amount' => round((float) $request->validated('amount'), 2),
             'concept' => $request->validated('concept'),

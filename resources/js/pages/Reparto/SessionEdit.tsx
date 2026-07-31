@@ -21,7 +21,7 @@ import { confirmAction } from '@/lib/sweetalert';
 import { formatCurrency, cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Briefcase, ClipboardList, Pencil, Receipt, Trash2 } from 'lucide-react';
+import { ArrowLeft, Briefcase, ClipboardList, Pencil, PlusCircle, Receipt, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -80,14 +80,20 @@ export default function SessionEdit({
 }: SessionEditProps) {
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
+    const { canEdit: canEditReparto } = useSectionAccess('reparto');
     const { canEdit: canEditGasto, canView: canViewGasto } = useSectionAccess('gasto');
     const {
         canEdit: canEditPersonalService,
         canView: canViewPersonalService,
     } = useSectionAccess('personal_service');
+    const [entryDialogMode, setEntryDialogMode] = useState<'add' | 'edit' | null>(null);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [personalServiceDialogMode, setPersonalServiceDialogMode] = useState<
+        'add' | 'edit' | null
+    >(null);
     const [editingPersonalService, setEditingPersonalService] =
         useState<PersonalServiceRow | null>(null);
+    const [expenseDialogMode, setExpenseDialogMode] = useState<'add' | 'edit' | null>(null);
     const [editingExpense, setEditingExpense] = useState<ExpenseRow | null>(null);
 
     const entryForm = useForm(emptyEntryForm);
@@ -172,12 +178,26 @@ export default function SessionEdit({
     }, [flash?.success, flash?.error]);
 
     const resetEntryForm = () => {
+        setEntryDialogMode(null);
         setEditingId(null);
         entryForm.clearErrors();
         entryForm.setData(emptyEntryForm);
     };
 
+    const openAddEntry = () => {
+        setPersonalServiceDialogMode(null);
+        setExpenseDialogMode(null);
+        setEditingPersonalService(null);
+        setEditingExpense(null);
+        setEditingId(null);
+        entryForm.setData(emptyEntryForm);
+        entryForm.clearErrors();
+        setEntryDialogMode('add');
+    };
+
     const loadEntry = (row: SessionEntryRow) => {
+        setPersonalServiceDialogMode(null);
+        setExpenseDialogMode(null);
         setEditingPersonalService(null);
         setEditingExpense(null);
         setEditingId(row.id);
@@ -188,17 +208,28 @@ export default function SessionEdit({
             clikio_extra: row.clikio_extra > 0 ? String(row.clikio_extra) : '',
             discount: row.clikio_discounts > 0 ? String(row.clikio_discounts) : '',
         });
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        entryForm.clearErrors();
+        setEntryDialogMode('edit');
     };
 
     const submitEntry = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingId) return;
+        if (!entryDialogMode) return;
 
         entryForm.transform((data) => ({
             ...data,
             client_payment_mode: 'cash',
         }));
+
+        if (entryDialogMode === 'add') {
+            entryForm.post(`${sessionBaseUrl}/pedidos`, {
+                preserveScroll: true,
+                onSuccess: () => resetEntryForm(),
+            });
+            return;
+        }
+
+        if (!editingId) return;
 
         entryForm.put(`${entriesBaseUrl}/${editingId}`, {
             preserveScroll: true,
@@ -226,8 +257,19 @@ export default function SessionEdit({
         });
     };
 
+    const openAddPersonalService = () => {
+        setEntryDialogMode(null);
+        setExpenseDialogMode(null);
+        setEditingExpense(null);
+        setEditingPersonalService(null);
+        editPersonalServiceForm.reset();
+        editPersonalServiceForm.clearErrors();
+        setPersonalServiceDialogMode('add');
+    };
+
     const openEditPersonalService = (service: PersonalServiceRow) => {
-        setEditingId(null);
+        setEntryDialogMode(null);
+        setExpenseDialogMode(null);
         setEditingExpense(null);
         setEditingPersonalService(service);
         editPersonalServiceForm.setData({
@@ -237,9 +279,11 @@ export default function SessionEdit({
             description: service.description ?? '',
         });
         editPersonalServiceForm.clearErrors();
+        setPersonalServiceDialogMode('edit');
     };
 
     const closeEditPersonalService = () => {
+        setPersonalServiceDialogMode(null);
         setEditingPersonalService(null);
         editPersonalServiceForm.reset();
         editPersonalServiceForm.clearErrors();
@@ -247,6 +291,16 @@ export default function SessionEdit({
 
     const submitEditPersonalService = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!personalServiceDialogMode) return;
+
+        if (personalServiceDialogMode === 'add') {
+            editPersonalServiceForm.post(`${sessionBaseUrl}/servicios-propios`, {
+                preserveScroll: true,
+                onSuccess: () => closeEditPersonalService(),
+            });
+            return;
+        }
+
         if (!editingPersonalService) return;
 
         editPersonalServiceForm.put(
@@ -278,8 +332,19 @@ export default function SessionEdit({
         });
     };
 
+    const openAddExpense = () => {
+        setEntryDialogMode(null);
+        setPersonalServiceDialogMode(null);
+        setEditingPersonalService(null);
+        setEditingExpense(null);
+        editExpenseForm.reset();
+        editExpenseForm.clearErrors();
+        setExpenseDialogMode('add');
+    };
+
     const openEditExpense = (expense: ExpenseRow) => {
-        setEditingId(null);
+        setEntryDialogMode(null);
+        setPersonalServiceDialogMode(null);
         setEditingPersonalService(null);
         setEditingExpense(expense);
         editExpenseForm.setData({
@@ -288,9 +353,11 @@ export default function SessionEdit({
             concept: expense.concept ?? '',
         });
         editExpenseForm.clearErrors();
+        setExpenseDialogMode('edit');
     };
 
     const closeEditExpense = () => {
+        setExpenseDialogMode(null);
         setEditingExpense(null);
         editExpenseForm.reset();
         editExpenseForm.clearErrors();
@@ -298,6 +365,16 @@ export default function SessionEdit({
 
     const submitEditExpense = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!expenseDialogMode) return;
+
+        if (expenseDialogMode === 'add') {
+            editExpenseForm.post(`${sessionBaseUrl}/gastos`, {
+                preserveScroll: true,
+                onSuccess: () => closeEditExpense(),
+            });
+            return;
+        }
+
         if (!editingExpense) return;
 
         editExpenseForm.put(`${sessionBaseUrl}/gastos/${editingExpense.id}`, {
@@ -423,121 +500,25 @@ export default function SessionEdit({
                     </Card>
                 </div>
 
-                {editingId ? (
-                    <Card className={cardClass}>
-                        <div className="mb-3 flex items-center justify-between">
-                            <p className="text-sm font-semibold">Editar pedido</p>
-                            <button
-                                type="button"
-                                onClick={resetEntryForm}
-                                className="text-xs text-slate-500 underline"
-                            >
-                                Cancelar edición
-                            </button>
-                        </div>
-                        <form onSubmit={submitEntry} className="space-y-3">
-                            <div>
-                                <Label className="mb-1 block text-xs text-slate-500">Nombre</Label>
-                                <Input
-                                    value={entryForm.data.name}
-                                    onChange={(e) => entryForm.setData('name', e.target.value)}
-                                    placeholder="Ej. Soriana"
-                                    className={cn(entryForm.errors.name && 'border-rose-500')}
-                                />
-                                {entryForm.errors.name && (
-                                    <p className="mt-1 text-xs text-rose-600">
-                                        {entryForm.errors.name}
-                                    </p>
-                                )}
-                            </div>
-                            <div>
-                                <Label className="mb-1 block text-xs text-slate-500">
-                                    Monto ($)
-                                </Label>
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    value={entryForm.data.service_cost}
-                                    onChange={(e) =>
-                                        entryForm.setData('service_cost', e.target.value)
-                                    }
-                                />
-                                <p className="mt-1.5 text-[11px] text-slate-500">
-                                    Tu {userPercentage}% · Mi gan.: $
-                                    {formatCurrency(commissionPreview.userCommission)} ·{' '}
-                                    {companyName}: $
-                                    {formatCurrency(commissionPreview.clikioCommission)}
-                                </p>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                <div>
-                                    <Label className="mb-1 block text-[10px] text-slate-500">
-                                        Extra tuyo
-                                    </Label>
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        step="0.01"
-                                        value={entryForm.data.user_extra}
-                                        onChange={(e) =>
-                                            entryForm.setData('user_extra', e.target.value)
-                                        }
-                                    />
-                                </div>
-                                <div>
-                                    <Label className="mb-1 block text-[10px] text-slate-500">
-                                        Extra {companyName}
-                                    </Label>
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        step="0.01"
-                                        value={entryForm.data.clikio_extra}
-                                        onChange={(e) =>
-                                            entryForm.setData('clikio_extra', e.target.value)
-                                        }
-                                    />
-                                </div>
-                                <div>
-                                    <Label className="mb-1 block text-[10px] text-slate-500">
-                                        Descuento
-                                    </Label>
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        step="0.01"
-                                        value={entryForm.data.discount}
-                                        onChange={(e) =>
-                                            entryForm.setData('discount', e.target.value)
-                                        }
-                                        onFocus={(e) => e.currentTarget.select()}
-                                    />
-                                </div>
-                            </div>
-                            <button
-                                type="submit"
-                                disabled={entryForm.processing}
-                                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-sidebar-active text-sm font-semibold text-white disabled:opacity-50"
-                            >
-                                <Pencil className="h-4 w-4" />
-                                {entryForm.processing ? 'Guardando...' : 'Actualizar pedido'}
-                            </button>
-                        </form>
-                    </Card>
-                ) : (
-                    <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-[#3a3a3a] dark:bg-[#1f1f1f]">
-                        Selecciona un pedido de la tabla para editar sus datos.
-                    </p>
-                )}
-
                 {canViewPersonalService && (
                     <Card className={cardClass}>
-                        <div className="mb-3 flex items-center gap-2">
-                            <Briefcase className="h-5 w-5 text-violet-600" />
-                            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                                Servicios propios del día
-                            </h2>
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <Briefcase className="h-5 w-5 text-violet-600" />
+                                <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                                    Servicios propios del día
+                                </h2>
+                            </div>
+                            {canEditPersonalService && (
+                                <button
+                                    type="button"
+                                    onClick={openAddPersonalService}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-400"
+                                >
+                                    <PlusCircle className="h-3.5 w-3.5" />
+                                    Agregar servicio propio
+                                </button>
+                            )}
                         </div>
 
                         {personalServices.length === 0 ? (
@@ -630,11 +611,23 @@ export default function SessionEdit({
 
                 {canViewGasto && (
                     <Card className={cardClass}>
-                        <div className="mb-3 flex items-center gap-2">
-                            <Receipt className="h-5 w-5 text-rose-600" />
-                            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                                Gastos del día
-                            </h2>
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <Receipt className="h-5 w-5 text-rose-600" />
+                                <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                                    Gastos del día
+                                </h2>
+                            </div>
+                            {canEditGasto && (
+                                <button
+                                    type="button"
+                                    onClick={openAddExpense}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400"
+                                >
+                                    <PlusCircle className="h-3.5 w-3.5" />
+                                    Agregar gasto
+                                </button>
+                            )}
                         </div>
 
                         {expenses.length === 0 ? (
@@ -709,11 +702,23 @@ export default function SessionEdit({
                 )}
 
                 <Card className={cardClass}>
-                    <div className="mb-3 flex items-center gap-2">
-                        <ClipboardList className="h-5 w-5 text-sidebar-active" />
-                        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                            Pedidos del día
-                        </h2>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <ClipboardList className="h-5 w-5 text-sidebar-active" />
+                            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                                Pedidos del día · {companyName}
+                            </h2>
+                        </div>
+                        {canEditReparto && (
+                            <button
+                                type="button"
+                                onClick={openAddEntry}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-sidebar-active px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                            >
+                                <PlusCircle className="h-3.5 w-3.5" />
+                                Agregar pedido
+                            </button>
+                        )}
                     </div>
 
                     {entries.length === 0 ? (
@@ -723,21 +728,145 @@ export default function SessionEdit({
                             entries={entries}
                             tableTotals={tableTotals}
                             companyName={companyName}
-                            onEdit={loadEntry}
-                            onDelete={deleteEntry}
+                            onEdit={canEditReparto ? loadEntry : undefined}
+                            onDelete={canEditReparto ? deleteEntry : undefined}
                         />
                     )}
                 </Card>
 
                 <Dialog
-                    open={editingPersonalService !== null}
+                    open={entryDialogMode !== null}
+                    onOpenChange={(open) => {
+                        if (!open) resetEntryForm();
+                    }}
+                >
+                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle>
+                                {entryDialogMode === 'add'
+                                    ? `Agregar pedido de ${companyName}`
+                                    : 'Editar pedido'}
+                            </DialogTitle>
+                            <DialogDescription>
+                                Comisiones, extras y descuentos se calculan al guardar.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={submitEntry} className="space-y-3">
+                            <div>
+                                <Label className="mb-1 block text-xs text-slate-500">Nombre</Label>
+                                <Input
+                                    value={entryForm.data.name}
+                                    onChange={(e) => entryForm.setData('name', e.target.value)}
+                                    placeholder="Ej. Soriana"
+                                    className={cn(entryForm.errors.name && 'border-rose-500')}
+                                />
+                                {entryForm.errors.name && (
+                                    <p className="mt-1 text-xs text-rose-600">
+                                        {entryForm.errors.name}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <Label className="mb-1 block text-xs text-slate-500">
+                                    Monto del servicio ($)
+                                </Label>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={entryForm.data.service_cost}
+                                    onChange={(e) =>
+                                        entryForm.setData('service_cost', e.target.value)
+                                    }
+                                />
+                                <p className="mt-1.5 text-[11px] text-slate-500">
+                                    Tu {userPercentage}% · Mi gan.: $
+                                    {formatCurrency(commissionPreview.userCommission)} ·{' '}
+                                    {companyName}: $
+                                    {formatCurrency(commissionPreview.clikioCommission)}
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                    <Label className="mb-1 block text-[10px] text-slate-500">
+                                        Extra tuyo
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        value={entryForm.data.user_extra}
+                                        onChange={(e) =>
+                                            entryForm.setData('user_extra', e.target.value)
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label className="mb-1 block text-[10px] text-slate-500">
+                                        Extra {companyName}
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        value={entryForm.data.clikio_extra}
+                                        onChange={(e) =>
+                                            entryForm.setData('clikio_extra', e.target.value)
+                                        }
+                                    />
+                                </div>
+                                <div>
+                                    <Label className="mb-1 block text-[10px] text-slate-500">
+                                        Descuento
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        value={entryForm.data.discount}
+                                        onChange={(e) =>
+                                            entryForm.setData('discount', e.target.value)
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <button
+                                    type="button"
+                                    onClick={resetEntryForm}
+                                    className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={entryForm.processing}
+                                    className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                >
+                                    {entryForm.processing
+                                        ? 'Guardando...'
+                                        : entryDialogMode === 'add'
+                                          ? 'Agregar pedido'
+                                          : 'Guardar cambios'}
+                                </button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog
+                    open={personalServiceDialogMode !== null}
                     onOpenChange={(open) => {
                         if (!open) closeEditPersonalService();
                     }}
                 >
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                            <DialogTitle>Editar servicio propio</DialogTitle>
+                            <DialogTitle>
+                                {personalServiceDialogMode === 'add'
+                                    ? 'Agregar servicio propio'
+                                    : 'Editar servicio propio'}
+                            </DialogTitle>
                             <DialogDescription>
                                 Al guardar, se recalcula el saldo del día de esta jornada.
                             </DialogDescription>
@@ -860,7 +989,9 @@ export default function SessionEdit({
                                 >
                                     {editPersonalServiceForm.processing
                                         ? 'Guardando...'
-                                        : 'Guardar cambios'}
+                                        : personalServiceDialogMode === 'add'
+                                          ? 'Agregar servicio'
+                                          : 'Guardar cambios'}
                                 </button>
                             </DialogFooter>
                         </form>
@@ -868,14 +999,16 @@ export default function SessionEdit({
                 </Dialog>
 
                 <Dialog
-                    open={editingExpense !== null}
+                    open={expenseDialogMode !== null}
                     onOpenChange={(open) => {
                         if (!open) closeEditExpense();
                     }}
                 >
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                            <DialogTitle>Editar gasto</DialogTitle>
+                            <DialogTitle>
+                                {expenseDialogMode === 'add' ? 'Agregar gasto' : 'Editar gasto'}
+                            </DialogTitle>
                             <DialogDescription>
                                 Al guardar, se recalculan los gastos y el saldo del día.
                             </DialogDescription>
@@ -960,7 +1093,9 @@ export default function SessionEdit({
                                 >
                                     {editExpenseForm.processing
                                         ? 'Guardando...'
-                                        : 'Guardar cambios'}
+                                        : expenseDialogMode === 'add'
+                                          ? 'Agregar gasto'
+                                          : 'Guardar cambios'}
                                 </button>
                             </DialogFooter>
                         </form>

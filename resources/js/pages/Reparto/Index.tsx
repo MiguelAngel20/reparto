@@ -27,7 +27,7 @@ import {
     ActivePersonalServicesBar,
     type ActivePersonalServiceSummary,
 } from '@/components/reparto/active-personal-services-bar';
-import { Briefcase, Package, Pencil, Play, Receipt, Scale, Trash2, TrendingDown } from 'lucide-react';
+import { BookCheck, Package, Pencil, Play, PlusCircle, Receipt, Trash2, TrendingDown } from 'lucide-react';
 import { confirmCloseCashSession, confirmAction } from '@/lib/sweetalert';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -376,8 +376,7 @@ export default function RepartoIndex({
                                     Iniciar jornada
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                    Comienza tu jornada del día ({todayDateFormatted}). Solo una
-                                    jornada por día.
+                                    Comienza tu jornada del día ({todayDateFormatted}).
                                 </p>
                             </div>
                         </div>
@@ -668,166 +667,182 @@ export default function RepartoIndex({
                                 </div>
                             </div>
 
-                            {canEdit && (
-                            <div className="mt-4 grid grid-cols-1 gap-2 min-[350px]:grid-cols-2">
-                                <button
-                                    type="button"
-                                    onClick={startOrder}
-                                    disabled={startOrderForm.processing}
-                                    className="inline-flex h-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-sidebar-active px-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:gap-2 sm:text-sm"
-                                >
-                                    <Package className="h-4 w-4 shrink-0" />
-                                    {startOrderForm.processing ? '...' : 'Nuevo pedido'}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={submitCloseCaja}
-                                    disabled={closeForm.processing}
-                                    className="inline-flex h-12 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border-2 border-sidebar-active px-2 text-xs font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50 sm:gap-2 sm:text-sm"
-                                >
-                                    <Scale className="h-4 w-4 shrink-0" />
-                                    {closeForm.processing ? '...' : 'Finalizar jornada'}
-                                </button>
+                            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
+                                {canEdit && (
+                                    <button
+                                        type="button"
+                                        onClick={startOrder}
+                                        disabled={startOrderForm.processing}
+                                        className="inline-flex h-12 w-full min-w-0 items-center justify-center gap-1.5 rounded-xl bg-sidebar-active px-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 sm:gap-2 sm:text-sm lg:px-1.5 lg:text-[11px] xl:text-sm"
+                                    >
+                                        <PlusCircle className="h-4 w-4 shrink-0" />
+                                        <span className="truncate">
+                                            {startOrderForm.processing
+                                                ? '...'
+                                                : `Nuevo pedido de ${companyName}`}
+                                        </span>
+                                    </button>
+                                )}
+
+                                {canEditPersonalService && (
+                                    <button
+                                        type="button"
+                                        onClick={startPersonalService}
+                                        disabled={startPersonalServiceForm.processing}
+                                        className="inline-flex h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-2 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-400 dark:hover:bg-violet-950/50 lg:text-xs xl:text-sm"
+                                    >
+                                        <PlusCircle className="h-4 w-4 shrink-0" />
+                                        <span className="truncate">
+                                            {startPersonalServiceForm.processing
+                                                ? 'Abriendo...'
+                                                : 'Nuevo servicio propio'}
+                                        </span>
+                                    </button>
+                                )}
+
+                                {canEditGasto && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpenseModalOpen(true)}
+                                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/50 lg:text-xs xl:text-sm"
+                                    >
+                                        <Receipt className="h-4 w-4 shrink-0" />
+                                        Agregar gasto
+                                    </button>
+                                )}
+
+                                {canEdit && (
+                                    <button
+                                        type="button"
+                                        onClick={submitCloseCaja}
+                                        disabled={closeForm.processing}
+                                        className="inline-flex h-12 w-full min-w-0 items-center justify-center gap-1.5 rounded-xl border-2 border-sidebar-active px-2 text-xs font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50 sm:gap-2 sm:text-sm lg:text-[11px] xl:text-sm"
+                                    >
+                                        <BookCheck className="h-4 w-4 shrink-0" />
+                                        <span className="truncate">
+                                            {closeForm.processing ? '...' : 'Finalizar jornada'}
+                                        </span>
+                                    </button>
+                                )}
                             </div>
-                            )}
 
                             {canEditGasto && (
-                            <>
-                            <button
-                                type="button"
-                                onClick={() => setExpenseModalOpen(true)}
-                                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/50"
-                            >
-                                <Receipt className="h-4 w-4 shrink-0" />
-                                Agregar gasto
-                            </button>
+                                <Dialog
+                                    open={expenseModalOpen}
+                                    onOpenChange={(open) => {
+                                        setExpenseModalOpen(open);
+                                        if (!open) {
+                                            expenseForm.reset();
+                                            expenseForm.clearErrors();
+                                        }
+                                    }}
+                                >
+                                    <DialogContent className="sm:max-w-md">
+                                        <DialogHeader>
+                                            <DialogTitle>Agregar gasto del día</DialogTitle>
+                                            <DialogDescription>
+                                                Registra un gasto sin salir de la jornada. Se restará
+                                                de tu saldo del día.
+                                            </DialogDescription>
+                                        </DialogHeader>
 
-                            <Dialog
-                                open={expenseModalOpen}
-                                onOpenChange={(open) => {
-                                    setExpenseModalOpen(open);
-                                    if (!open) {
-                                        expenseForm.reset();
-                                        expenseForm.clearErrors();
-                                    }
-                                }}
-                            >
-                                <DialogContent className="sm:max-w-md">
-                                    <DialogHeader>
-                                        <DialogTitle>Agregar gasto del día</DialogTitle>
-                                        <DialogDescription>
-                                            Registra un gasto sin salir de la jornada. Se restará de
-                                            tu saldo del día.
-                                        </DialogDescription>
-                                    </DialogHeader>
-
-                                    <form onSubmit={submitExpense} noValidate className="space-y-4">
-                                        <div>
-                                            <Label
-                                                htmlFor="jornada_expense_name"
-                                                className="mb-1 block text-xs text-slate-500"
-                                            >
-                                                Nombre del gasto
-                                            </Label>
-                                            <Input
-                                                id="jornada_expense_name"
-                                                value={expenseForm.data.name}
-                                                onChange={(e) =>
-                                                    expenseForm.setData('name', e.target.value)
-                                                }
-                                                placeholder="Ej. Gasolina, comida"
-                                                className={cn(
-                                                    expenseForm.errors.name && 'border-rose-500',
+                                        <form
+                                            onSubmit={submitExpense}
+                                            noValidate
+                                            className="space-y-4"
+                                        >
+                                            <div>
+                                                <Label
+                                                    htmlFor="jornada_expense_name"
+                                                    className="mb-1 block text-xs text-slate-500"
+                                                >
+                                                    Nombre del gasto
+                                                </Label>
+                                                <Input
+                                                    id="jornada_expense_name"
+                                                    value={expenseForm.data.name}
+                                                    onChange={(e) =>
+                                                        expenseForm.setData('name', e.target.value)
+                                                    }
+                                                    placeholder="Ej. Gasolina, comida"
+                                                    className={cn(
+                                                        expenseForm.errors.name && 'border-rose-500',
+                                                    )}
+                                                />
+                                                {expenseForm.errors.name && (
+                                                    <p className="mt-1 text-xs text-rose-600">
+                                                        {expenseForm.errors.name}
+                                                    </p>
                                                 )}
-                                            />
-                                            {expenseForm.errors.name && (
-                                                <p className="mt-1 text-xs text-rose-600">
-                                                    {expenseForm.errors.name}
-                                                </p>
-                                            )}
-                                        </div>
+                                            </div>
 
-                                        <div>
-                                            <Label
-                                                htmlFor="jornada_expense_amount"
-                                                className="mb-1 block text-xs text-slate-500"
-                                            >
-                                                Cantidad ($)
-                                            </Label>
-                                            <Input
-                                                id="jornada_expense_amount"
-                                                type="number"
-                                                min={0.01}
-                                                step="0.01"
-                                                value={expenseForm.data.amount}
-                                                onChange={(e) =>
-                                                    expenseForm.setData('amount', e.target.value)
-                                                }
-                                                placeholder="0.00"
-                                                className={cn(
-                                                    expenseForm.errors.amount && 'border-rose-500',
+                                            <div>
+                                                <Label
+                                                    htmlFor="jornada_expense_amount"
+                                                    className="mb-1 block text-xs text-slate-500"
+                                                >
+                                                    Cantidad ($)
+                                                </Label>
+                                                <Input
+                                                    id="jornada_expense_amount"
+                                                    type="number"
+                                                    min={0.01}
+                                                    step="0.01"
+                                                    value={expenseForm.data.amount}
+                                                    onChange={(e) =>
+                                                        expenseForm.setData('amount', e.target.value)
+                                                    }
+                                                    placeholder="0.00"
+                                                    className={cn(
+                                                        expenseForm.errors.amount &&
+                                                            'border-rose-500',
+                                                    )}
+                                                />
+                                                {expenseForm.errors.amount && (
+                                                    <p className="mt-1 text-xs text-rose-600">
+                                                        {expenseForm.errors.amount}
+                                                    </p>
                                                 )}
-                                            />
-                                            {expenseForm.errors.amount && (
-                                                <p className="mt-1 text-xs text-rose-600">
-                                                    {expenseForm.errors.amount}
-                                                </p>
-                                            )}
-                                        </div>
+                                            </div>
 
-                                        <div>
-                                            <Label
-                                                htmlFor="jornada_expense_concept"
-                                                className="mb-1 block text-xs text-slate-500"
-                                            >
-                                                Concepto (opcional)
-                                            </Label>
-                                            <Input
-                                                id="jornada_expense_concept"
-                                                value={expenseForm.data.concept}
-                                                onChange={(e) =>
-                                                    expenseForm.setData('concept', e.target.value)
-                                                }
-                                                placeholder="Detalle adicional"
-                                            />
-                                        </div>
+                                            <div>
+                                                <Label
+                                                    htmlFor="jornada_expense_concept"
+                                                    className="mb-1 block text-xs text-slate-500"
+                                                >
+                                                    Concepto (opcional)
+                                                </Label>
+                                                <Input
+                                                    id="jornada_expense_concept"
+                                                    value={expenseForm.data.concept}
+                                                    onChange={(e) =>
+                                                        expenseForm.setData('concept', e.target.value)
+                                                    }
+                                                    placeholder="Detalle adicional"
+                                                />
+                                            </div>
 
-                                        <DialogFooter className="gap-2 sm:gap-0">
-                                            <button
-                                                type="button"
-                                                onClick={() => setExpenseModalOpen(false)}
-                                                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
-                                            >
-                                                Cancelar
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={expenseForm.processing}
-                                                className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
-                                            >
-                                                {expenseForm.processing
-                                                    ? 'Guardando...'
-                                                    : 'Guardar gasto'}
-                                            </button>
-                                        </DialogFooter>
-                                    </form>
-                                </DialogContent>
-                            </Dialog>
-                            </>
-                            )}
-
-                            {canEditPersonalService && (
-                            <button
-                                type="button"
-                                onClick={startPersonalService}
-                                disabled={startPersonalServiceForm.processing}
-                                className="mt-2 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-400 dark:hover:bg-violet-950/50"
-                            >
-                                <Briefcase className="h-4 w-4 shrink-0" />
-                                {startPersonalServiceForm.processing
-                                    ? 'Abriendo...'
-                                    : 'Agregar servicio propio'}
-                            </button>
+                                            <DialogFooter className="gap-2 sm:gap-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setExpenseModalOpen(false)}
+                                                    className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={expenseForm.processing}
+                                                    className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                                >
+                                                    {expenseForm.processing
+                                                        ? 'Guardando...'
+                                                        : 'Guardar gasto'}
+                                                </button>
+                                            </DialogFooter>
+                                        </form>
+                                    </DialogContent>
+                                </Dialog>
                             )}
                         </Card>
 

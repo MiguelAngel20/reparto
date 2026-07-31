@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reparto;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Gasto\StoreDailyExpenseRequest;
 use App\Http\Requests\Gasto\UpdateDailyExpenseRequest;
 use App\Http\Requests\PersonalService\UpdatePersonalServiceRequest;
 use App\Http\Requests\Reparto\StoreManualCaptureEntryRequest;
@@ -139,6 +140,72 @@ class RepartoController extends Controller
         $this->assertEditableSession($request, $session);
 
         return $this->renderSessionEdit($request, $session);
+    }
+
+    public function storeSessionEntry(
+        StoreManualCaptureEntryRequest $request,
+        CashSession $session,
+    ): RedirectResponse {
+        $this->assertEditableSession($request, $session);
+        abort_unless($session->isLive(), 403);
+
+        DeliveryOrder::query()->create(
+            $this->buildOrderAttributes($request->user(), $session, $request->validated()),
+        );
+
+        $this->refreshCompanyBalanceIfNeeded($session);
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Pedido agregado.');
+    }
+
+    public function storeSessionExpense(
+        StoreDailyExpenseRequest $request,
+        CashSession $session,
+    ): RedirectResponse {
+        $this->assertEditableSession($request, $session);
+        abort_unless($session->isLive(), 403);
+
+        DailyExpense::query()->create([
+            'user_id' => $request->user()->id,
+            'expense_date' => $session->businessDate(),
+            'name' => trim($request->validated('name')),
+            'amount' => round((float) $request->validated('amount'), 2),
+            'concept' => $request->validated('concept'),
+        ]);
+
+        $this->refreshCompanyBalanceIfNeeded($session);
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Gasto registrado.');
+    }
+
+    public function storeSessionPersonalService(
+        UpdatePersonalServiceRequest $request,
+        CashSession $session,
+    ): RedirectResponse {
+        $this->assertEditableSession($request, $session);
+        abort_unless($session->isLive(), 403);
+
+        $spent = $request->validated('spent_amount');
+
+        PersonalService::query()->create([
+            'user_id' => $request->user()->id,
+            'service_date' => $session->businessDate(),
+            'status' => PersonalService::STATUS_COMPLETED,
+            'name' => trim($request->validated('name')),
+            'amount' => round((float) $request->validated('amount'), 2),
+            'spent_amount' => $spent !== null ? round((float) $spent, 2) : null,
+            'description' => $request->validated('description'),
+        ]);
+
+        $this->refreshCompanyBalanceIfNeeded($session);
+
+        return redirect()
+            ->route('reparto.session.edit', $session)
+            ->with('success', 'Servicio propio registrado.');
     }
 
     public function updateSessionEntry(

@@ -236,13 +236,6 @@ export default function EquipoIndex({
                         <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
                             Equipo
                         </h1>
-                        <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                            <strong className="font-semibold text-slate-600 dark:text-slate-300">
-                                En línea
-                            </strong>{' '}
-                            solo si la jornada se abrió hoy. Si quedó abierta días atrás, no
-                            significa que esté usando la app ahora: probablemente olvidó cerrarla.
-                        </p>
                         <p className="mt-2 text-xs text-slate-400">
                             Datos al {generated_at}
                         </p>

@@ -20,7 +20,8 @@ class PersonalServiceSessionController extends Controller
     {
         $user = $request->user();
 
-        if (! CashSession::openLiveForUser($user->id)) {
+        $session = CashSession::openLiveForUser($user->id);
+        if (! $session) {
             return redirect()
                 ->route('reparto.index')
                 ->with('error', 'Abre una jornada antes de agregar un servicio propio.');
@@ -28,7 +29,7 @@ class PersonalServiceSessionController extends Controller
 
         $service = PersonalService::query()->create([
             'user_id' => $user->id,
-            'service_date' => now()->toDateString(),
+            'service_date' => $session->businessDate(),
             'status' => PersonalService::STATUS_IN_PROGRESS,
             'name' => '',
             'amount' => self::DEFAULT_SERVICE_AMOUNT,
@@ -77,9 +78,16 @@ class PersonalServiceSessionController extends Controller
 
         $this->applyServiceData($service, $request->validated());
 
-        $service->update([
+        $completionUpdate = [
             'status' => PersonalService::STATUS_COMPLETED,
-        ]);
+        ];
+
+        $openSession = CashSession::openLiveForUser($request->user()->id);
+        if ($openSession !== null) {
+            $completionUpdate['service_date'] = $openSession->businessDate();
+        }
+
+        $service->update($completionUpdate);
 
         return $this->redirectAfterClosingService(
             $request->user()->id,

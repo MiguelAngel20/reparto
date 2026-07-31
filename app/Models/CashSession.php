@@ -87,11 +87,28 @@ class CashSession extends Model
     public function activityDateRange(): array
     {
         $start = $this->businessDate();
-        $end = $this->isOpen()
-            ? now()->toDateString()
-            : ($this->ended_at?->toDateString() ?? $start);
+
+        if ($this->isOpen()) {
+            return [$start, $start];
+        }
+
+        $end = $this->ended_at?->toDateString() ?? $start;
 
         return [$start, $end];
+    }
+
+    /**
+     * Fecha contable para gastos/servicios creados mientras hay jornada en vivo abierta.
+     */
+    public static function activityBookingDateForUser(int $userId): string
+    {
+        $session = self::openLiveForUser($userId);
+
+        if ($session !== null) {
+            return $session->businessDate();
+        }
+
+        return now()->toDateString();
     }
 
     public function scopeLive(Builder $query): Builder

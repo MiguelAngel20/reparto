@@ -143,13 +143,16 @@ Route::middleware('auth')->group(function () {
             Route::post('/caja', [CashSessionController::class, 'store'])->name('caja.store');
             Route::post('/caja/cerrar', [CashSessionController::class, 'close'])->name('caja.close');
             Route::delete('/jornada/{session}', [RepartoController::class, 'destroySession'])->name('session.destroy');
+            Route::post('/jornada/{session}/pedidos', [RepartoController::class, 'storeSessionEntry'])->name('session.entries.store');
             Route::put('/jornada/{session}/pedidos/{order}', [RepartoController::class, 'updateSessionEntry'])->name('session.entries.update');
             Route::delete('/jornada/{session}/pedidos/{order}', [RepartoController::class, 'destroySessionEntry'])->name('session.entries.destroy');
             Route::middleware('section:'.UserSection::GASTO.',edit')->group(function () {
+                Route::post('/jornada/{session}/gastos', [RepartoController::class, 'storeSessionExpense'])->name('session.expenses.store');
                 Route::put('/jornada/{session}/gastos/{expense}', [RepartoController::class, 'updateSessionExpense'])->name('session.expenses.update');
                 Route::delete('/jornada/{session}/gastos/{expense}', [RepartoController::class, 'destroySessionExpense'])->name('session.expenses.destroy');
             });
             Route::middleware('section:'.UserSection::PERSONAL_SERVICE.',edit')->group(function () {
+                Route::post('/jornada/{session}/servicios-propios', [RepartoController::class, 'storeSessionPersonalService'])->name('session.personal-services.store');
                 Route::put('/jornada/{session}/servicios-propios/{service}', [RepartoController::class, 'updateSessionPersonalService'])->name('session.personal-services.update');
                 Route::delete('/jornada/{session}/servicios-propios/{service}', [RepartoController::class, 'destroySessionPersonalService'])->name('session.personal-services.destroy');
             });
