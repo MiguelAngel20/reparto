@@ -22,7 +22,7 @@ export function ContactListRow({ contact, className }: Props) {
     return (
         <div
             className={cn(
-                'flex items-center gap-2 border-b border-slate-100 px-0 py-2 last:border-b-0 dark:border-[#2b2b2b]',
+                'flex items-center gap-2 border-b border-slate-100 px-[5px] py-2 last:border-b-0 dark:border-[#2b2b2b]',
                 className,
             )}
         >

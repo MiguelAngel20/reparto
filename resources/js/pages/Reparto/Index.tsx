@@ -435,6 +435,20 @@ export default function RepartoIndex({
 
                 {openSession ? (
                     <>
+                        {canEdit && (
+                            <div className="flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={submitCloseCaja}
+                                    disabled={closeForm.processing}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-sidebar-active/30 bg-white px-3 py-2 text-sm font-semibold text-sidebar-active shadow-sm hover:bg-sidebar-active/5 disabled:opacity-50 dark:border-sidebar-active/40 dark:bg-[#262626] dark:hover:bg-sidebar-active/10"
+                                >
+                                    <BookCheck className="h-4 w-4 shrink-0" />
+                                    {closeForm.processing ? 'Finalizando...' : 'Finalizar jornada'}
+                                </button>
+                            </div>
+                        )}
+
                         <Card className={`${cardClass} border-2 border-sidebar-active/30 p-4 sm:p-5`}>
                             {/* Móvil: 4 cards compactas en grid 2×2 */}
                             <div className="grid grid-cols-2 items-stretch gap-2.5 md:hidden">
@@ -554,11 +568,19 @@ export default function RepartoIndex({
                                                 Cuadre con {companyName}
                                             </p>
                                         </>
-                                    ) : (
-                                        <p className="text-[10px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
-                                            Cuadrado con {companyName}
-                                        </p>
-                                    )}
+                                    ) : sessionSummary ? (
+                                        <>
+                                            <p className="text-[9px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
+                                                Cuadrado con {companyName}
+                                            </p>
+                                            <p className="font-mono text-lg font-bold tabular-nums leading-tight text-slate-600 dark:text-slate-300">
+                                                ${formatCurrency(0)}
+                                            </p>
+                                            <p className="text-[9px] leading-tight text-slate-500 dark:text-slate-400">
+                                                Cuadre con {companyName}
+                                            </p>
+                                        </>
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -658,16 +680,21 @@ export default function RepartoIndex({
                                                     ${formatCurrency(sessionSummary.settlementAbs)}
                                                 </p>
                                             </>
-                                        ) : (
-                                            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                                                Cuadrado con {companyName}
-                                            </p>
-                                        )}
+                                        ) : sessionSummary ? (
+                                            <>
+                                                <p className="text-xs font-semibold leading-tight text-slate-600 dark:text-slate-300">
+                                                    Cuadrado con {companyName}
+                                                </p>
+                                                <p className="mt-0.5 text-lg font-bold tabular-nums text-slate-600 dark:text-slate-300">
+                                                    ${formatCurrency(0)}
+                                                </p>
+                                            </>
+                                        ) : null}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
+                            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
                                 {canEdit && (
                                     <button
                                         type="button"
@@ -708,20 +735,6 @@ export default function RepartoIndex({
                                     >
                                         <Receipt className="h-4 w-4 shrink-0" />
                                         Agregar gasto
-                                    </button>
-                                )}
-
-                                {canEdit && (
-                                    <button
-                                        type="button"
-                                        onClick={submitCloseCaja}
-                                        disabled={closeForm.processing}
-                                        className="inline-flex h-12 w-full min-w-0 items-center justify-center gap-1.5 rounded-xl border-2 border-sidebar-active px-2 text-xs font-semibold text-sidebar-active hover:bg-sidebar-active/10 disabled:opacity-50 sm:gap-2 sm:text-sm lg:text-[11px] xl:text-sm"
-                                    >
-                                        <BookCheck className="h-4 w-4 shrink-0" />
-                                        <span className="truncate">
-                                            {closeForm.processing ? '...' : 'Finalizar jornada'}
-                                        </span>
                                     </button>
                                 )}
                             </div>
