@@ -58,6 +58,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(CardAccount::class, 'card_account_user')->withTimestamps();
     }
 
+    public function transferCards(): HasMany
+    {
+        return $this->hasMany(UserTransferCard::class)->latest();
+    }
+
     public static function roleLabel(?string $role): string
     {
         return match ($role) {

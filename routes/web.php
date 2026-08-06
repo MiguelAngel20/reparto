@@ -183,6 +183,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
         Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+        Route::post('/profile/transfer-cards', [ProfileController::class, 'storeTransferCard'])->name('profile.transfer-cards.store');
+        Route::put('/profile/transfer-cards/{transferCard}', [ProfileController::class, 'updateTransferCard'])->name('profile.transfer-cards.update');
+        Route::delete('/profile/transfer-cards/{transferCard}', [ProfileController::class, 'destroyTransferCard'])->name('profile.transfer-cards.destroy');
     });
 });
 

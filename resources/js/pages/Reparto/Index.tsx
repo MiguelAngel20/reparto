@@ -19,6 +19,8 @@ import {
     SessionHistoryList,
     type SessionHistoryItem,
 } from '@/components/reparto/session-history-list';
+import { TransferCardsQuickCopy } from '@/components/reparto/transfer-cards-quick-copy';
+import type { TransferCardData } from '@/pages/settings/Profile/components/TransferCardsList';
 import {
     ActiveOrdersBar,
     type ActiveOrderSummary,
@@ -89,6 +91,7 @@ interface RepartoIndexProps {
     activeOrders: ActiveOrderSummary[];
     activePersonalServices: ActivePersonalServiceSummary[];
     recentSessions: CashSessionData[];
+    transferCards: TransferCardData[];
     canStartJornadaToday: boolean;
     todayDateFormatted: string;
     sessionDateFormatted: string | null;
@@ -116,6 +119,7 @@ export default function RepartoIndex({
     activeOrders,
     activePersonalServices,
     recentSessions,
+    transferCards,
     canStartJornadaToday,
     todayDateFormatted,
     sessionDateFormatted,
@@ -1463,6 +1467,12 @@ export default function RepartoIndex({
                             </DialogContent>
                         </Dialog>
                     </>
+                ) : null}
+
+                {openSession ? (
+                    <Card className={`${cardClass} p-4 sm:p-5`}>
+                        <TransferCardsQuickCopy cards={transferCards} />
+                    </Card>
                 ) : null}
 
                 <SessionHistoryList

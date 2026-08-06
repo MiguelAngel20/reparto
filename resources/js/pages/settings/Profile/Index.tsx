@@ -2,12 +2,23 @@ import AppLayout from '@/layouts/app-layout';
 import SettingsSidebar from '@/pages/settings/components/SettingsSidebar';
 import ProfilePresentationCard from '@/pages/settings/Profile/components/ProfilePresentationCard';
 import ProfileEditCard from '@/pages/settings/Profile/components/ProfileEditCard';
+import TransferCardsList, {
+    type TransferCardData,
+} from '@/pages/settings/Profile/components/TransferCardsList';
 import { type BreadcrumbItem } from '@/types';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { Card } from '@/components/ui';
+import Button from '@/components/ui/Button';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { AuthFormAlert } from '@/components/auth/auth-form-alert';
 import { AuthFormField } from '@/components/auth/auth-form-field';
-import { Lock, Eye, EyeOff, Pencil, X } from 'lucide-react';
+import { Check, CreditCard, Lock, Eye, EyeOff, Pencil, Plus, Building2, User, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     isPasswordMismatchError,
@@ -31,6 +42,7 @@ type ProfileData = {
 
 interface ProfilePageProps {
     profile: ProfileData;
+    transferCards: TransferCardData[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -41,11 +53,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 const cardClass =
     'border border-slate-200/80 bg-white p-6 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626]';
 
-export default function ProfileIndex({ profile }: ProfilePageProps) {
+export default function ProfileIndex({ profile, transferCards }: ProfilePageProps) {
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
 
     const [isEditing, setIsEditing] = useState(false);
+    const [transferCardModalOpen, setTransferCardModalOpen] = useState(false);
+    const [editingTransferCard, setEditingTransferCard] = useState<TransferCardData | null>(null);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [passwordBanner, setPasswordBanner] = useState<string | null>(null);
@@ -60,6 +74,13 @@ export default function ProfileIndex({ profile }: ProfilePageProps) {
     const passwordForm = useForm({
         password: '',
         password_confirmation: '',
+    });
+
+    const transferCardForm = useForm({
+        holder_name: '',
+        card_number: '',
+        clabe: '',
+        bank_name: '',
     });
 
     useEffect(() => {
@@ -134,6 +155,52 @@ export default function ProfileIndex({ profile }: ProfilePageProps) {
         });
     };
 
+    const closeTransferCardModal = () => {
+        setTransferCardModalOpen(false);
+        setEditingTransferCard(null);
+        transferCardForm.reset();
+        transferCardForm.clearErrors();
+    };
+
+    const openCreateTransferCard = () => {
+        setEditingTransferCard(null);
+        transferCardForm.reset();
+        transferCardForm.clearErrors();
+        setTransferCardModalOpen(true);
+    };
+
+    const openEditTransferCard = (card: TransferCardData) => {
+        setEditingTransferCard(card);
+        transferCardForm.setData({
+            holder_name: card.holder_name,
+            card_number: card.card_number ?? '',
+            clabe: card.clabe ?? '',
+            bank_name: card.bank_name,
+        });
+        transferCardForm.clearErrors();
+        setTransferCardModalOpen(true);
+    };
+
+    const submitTransferCard = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (editingTransferCard) {
+            transferCardForm.put(
+                `/settings/profile/transfer-cards/${editingTransferCard.id}`,
+                {
+                    preserveScroll: true,
+                    onSuccess: () => closeTransferCardModal(),
+                },
+            );
+            return;
+        }
+
+        transferCardForm.post('/settings/profile/transfer-cards', {
+            preserveScroll: true,
+            onSuccess: () => closeTransferCardModal(),
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs} title="Mi información" sidebar={<SettingsSidebar />}>
             <Head title="Mi información" />
@@ -150,14 +217,24 @@ export default function ProfileIndex({ profile }: ProfilePageProps) {
                             </p>
                         </div>
                         {!isEditing ? (
-                            <button
-                                type="button"
-                                onClick={() => setIsEditing(true)}
-                                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sidebar-active px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                            >
-                                <Pencil className="h-4 w-4" />
-                                Editar perfil
-                            </button>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEditing(true)}
+                                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sidebar-active px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                    Editar perfil
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={openCreateTransferCard}
+                                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-[#3a3a3a] dark:text-slate-200 dark:hover:bg-[#2a2a2a]"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Agregar tarjeta
+                                </button>
+                            </div>
                         ) : (
                             <button
                                 type="button"
@@ -197,9 +274,28 @@ export default function ProfileIndex({ profile }: ProfilePageProps) {
                     <h2 className="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
                         Seguridad
                     </h2>
-                    <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
-                        Cambia tu contraseña de acceso
+                    <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+                        Referencias para transferencias y cambio de contraseña
                     </p>
+
+                    <div className="mb-8">
+                        <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                            Tarjetas para transferencias
+                        </h3>
+                        <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+                            Datos de referencia personales para hacer transferencias sin buscar en
+                            otro lugar.
+                        </p>
+                        <TransferCardsList cards={transferCards} onEdit={openEditTransferCard} />
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-6 dark:border-[#3a3a3a]">
+                        <h3 className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                            Cambiar contraseña
+                        </h3>
+                        <p className="mb-6 text-xs text-slate-500 dark:text-slate-400">
+                            Actualiza tu contraseña de acceso
+                        </p>
 
                     {passwordBannerMessage && (
                         <div className="mb-4">
@@ -287,8 +383,119 @@ export default function ProfileIndex({ profile }: ProfilePageProps) {
                                 : 'Actualizar contraseña'}
                         </button>
                     </form>
+                    </div>
                 </Card>
             </div>
+
+            <Dialog
+                open={transferCardModalOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        closeTransferCardModal();
+                        return;
+                    }
+                    setTransferCardModalOpen(true);
+                }}
+            >
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <CreditCard className="h-5 w-5 text-sidebar-active" />
+                            {editingTransferCard
+                                ? 'Editar tarjeta para transferencias'
+                                : 'Nueva tarjeta para transferencias'}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={submitTransferCard} noValidate className="space-y-1">
+                        <AuthFormField
+                            id="transfer-holder-name"
+                            label="Nombre del titular"
+                            error={transferCardForm.errors.holder_name}
+                            icon={<User className="h-4 w-4" />}
+                            inputProps={{
+                                value: transferCardForm.data.holder_name,
+                                onChange: (e) => {
+                                    transferCardForm.setData('holder_name', e.target.value);
+                                    transferCardForm.clearErrors('holder_name');
+                                },
+                                placeholder: 'Nombre completo del titular',
+                                autoFocus: true,
+                            }}
+                        />
+                        <AuthFormField
+                            id="transfer-card-number"
+                            label="Número de tarjeta"
+                            error={transferCardForm.errors.card_number}
+                            icon={<CreditCard className="h-4 w-4" />}
+                            inputProps={{
+                                inputMode: 'numeric',
+                                value: transferCardForm.data.card_number,
+                                onChange: (e) => {
+                                    transferCardForm.setData('card_number', e.target.value);
+                                    transferCardForm.clearErrors('card_number');
+                                    if (e.target.value.trim()) {
+                                        transferCardForm.clearErrors('clabe');
+                                    }
+                                },
+                                placeholder: '0000 0000 0000 0000',
+                            }}
+                        />
+                        <AuthFormField
+                            id="transfer-clabe"
+                            label="CLABE"
+                            error={transferCardForm.errors.clabe}
+                            icon={<CreditCard className="h-4 w-4" />}
+                            inputProps={{
+                                inputMode: 'numeric',
+                                value: transferCardForm.data.clabe,
+                                onChange: (e) => {
+                                    transferCardForm.setData('clabe', e.target.value);
+                                    transferCardForm.clearErrors('clabe');
+                                    if (e.target.value.trim()) {
+                                        transferCardForm.clearErrors('card_number');
+                                    }
+                                },
+                                placeholder: '18 dígitos',
+                            }}
+                        />
+                        <AuthFormField
+                            id="transfer-bank-name"
+                            label="Nombre del banco"
+                            error={transferCardForm.errors.bank_name}
+                            icon={<Building2 className="h-4 w-4" />}
+                            inputProps={{
+                                value: transferCardForm.data.bank_name,
+                                onChange: (e) => {
+                                    transferCardForm.setData('bank_name', e.target.value);
+                                    transferCardForm.clearErrors('bank_name');
+                                },
+                                placeholder: 'Ej. BBVA, Banorte, Santander…',
+                            }}
+                        />
+                        <p className="-mt-2 mb-4 text-xs text-slate-500 dark:text-slate-400">
+                            Debes indicar al menos el número de tarjeta o la CLABE.
+                        </p>
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button
+                                type="button"
+                                variant="danger"
+                                leftIcon={<X className="h-4 w-4" />}
+                                onClick={closeTransferCardModal}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="info"
+                                leftIcon={<Check className="h-4 w-4" />}
+                                loading={transferCardForm.processing}
+                            >
+                                {editingTransferCard ? 'Guardar cambios' : 'Guardar tarjeta'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

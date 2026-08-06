@@ -11,6 +11,7 @@ use App\Models\CashSession;
 use App\Models\DailyExpense;
 use App\Models\DeliveryOrder;
 use App\Models\PersonalService;
+use App\Models\UserTransferCard;
 use App\Services\CashSessionSummary;
 use App\Services\CompanyBalanceService;
 use App\Services\DailyEarningsHelper;
@@ -114,6 +115,11 @@ class RepartoController extends Controller
             'activeOrders' => $activeOrders,
             'activePersonalServices' => $activePersonalServices,
             'recentSessions' => $recentSessions,
+            'transferCards' => $user->transferCards()
+                ->get()
+                ->map(fn (UserTransferCard $card) => $card->toDisplayArray())
+                ->values()
+                ->all(),
             'canStartJornadaToday' => $openSession === null && ! CashSession::dayRegisteredForUser($user->id, $today),
             'todayDateFormatted' => now()->format('d/m/Y'),
             'sessionDateFormatted' => $openSession
