@@ -22,8 +22,8 @@ async function copyText(value: string, successMessage: string) {
 
 function buildFullCopyText(card: TransferCardData): string {
     const lines = [
-        `Titular: ${card.holder_name}`,
         `Banco: ${card.bank_name}`,
+        `Titular: ${card.holder_name}`,
     ];
 
     if (card.card_number) {
@@ -84,10 +84,10 @@ function TransferCardQuickItem({ card }: { card: TransferCardData }) {
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                        {card.holder_name}
+                        {card.bank_name}
                     </p>
                     <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                        {card.bank_name}
+                        {card.holder_name}
                     </p>
                 </div>
                 <button
@@ -108,20 +108,20 @@ function TransferCardQuickItem({ card }: { card: TransferCardData }) {
                 <div className="flex items-center gap-1">
                     <p className="min-w-0 flex-1 truncate text-xs text-slate-600 dark:text-slate-300">
                         <span className="font-medium text-slate-500 dark:text-slate-400">
-                            Titular:{' '}
-                        </span>
-                        {card.holder_name}
-                    </p>
-                    <CopyFieldButton value={card.holder_name} label="Titular" />
-                </div>
-                <div className="flex items-center gap-1">
-                    <p className="min-w-0 flex-1 truncate text-xs text-slate-600 dark:text-slate-300">
-                        <span className="font-medium text-slate-500 dark:text-slate-400">
                             Banco:{' '}
                         </span>
                         {card.bank_name}
                     </p>
                     <CopyFieldButton value={card.bank_name} label="Banco" />
+                </div>
+                <div className="flex items-center gap-1">
+                    <p className="min-w-0 flex-1 truncate text-xs text-slate-600 dark:text-slate-300">
+                        <span className="font-medium text-slate-500 dark:text-slate-400">
+                            Titular:{' '}
+                        </span>
+                        {card.holder_name}
+                    </p>
+                    <CopyFieldButton value={card.holder_name} label="Titular" />
                 </div>
                 {card.card_number ? (
                     <div className="flex items-center gap-1">

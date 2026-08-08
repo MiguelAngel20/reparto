@@ -25,7 +25,7 @@ export default function TransferCardsList({ cards, onEdit }: Props) {
     const removeCard = (card: TransferCardData) => {
         if (
             !window.confirm(
-                `¿Eliminar la tarjeta de ${card.holder_name} (${card.bank_name})?`,
+                `¿Eliminar la tarjeta ${card.bank_name} de ${card.holder_name}?`,
             )
         ) {
             return;
@@ -61,10 +61,10 @@ export default function TransferCardsList({ cards, onEdit }: Props) {
                             </div>
                             <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                                    {card.holder_name}
+                                    {card.bank_name}
                                 </p>
                                 <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                    {card.bank_name}
+                                    {card.holder_name}
                                 </p>
                             </div>
                         </div>
@@ -75,7 +75,7 @@ export default function TransferCardsList({ cards, onEdit }: Props) {
                                 size="icon"
                                 className="rounded-lg"
                                 onClick={() => onEdit(card)}
-                                aria-label={`Editar tarjeta de ${card.holder_name}`}
+                                aria-label={`Editar tarjeta ${card.bank_name}`}
                             >
                                 <Pencil className="h-4 w-4 text-slate-600 dark:text-slate-300" />
                             </Button>
@@ -86,7 +86,7 @@ export default function TransferCardsList({ cards, onEdit }: Props) {
                                 className="rounded-lg"
                                 disabled={deletingId === card.id}
                                 onClick={() => removeCard(card)}
-                                aria-label={`Eliminar tarjeta de ${card.holder_name}`}
+                                aria-label={`Eliminar tarjeta ${card.bank_name}`}
                             >
                                 <Trash2 className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                             </Button>
