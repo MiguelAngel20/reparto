@@ -8,6 +8,18 @@ import { initializeTheme } from './hooks/use-appearance';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Reparto';
 
+function hideBootSplash() {
+    const splash = document.getElementById('app-boot-splash');
+    if (!splash) {
+        return;
+    }
+
+    splash.classList.add('is-hiding');
+    window.setTimeout(() => {
+        splash.remove();
+    }, 300);
+}
+
 initializeTheme();
 
 createInertiaApp({
@@ -17,6 +29,7 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
         root.render(<App {...props} />);
+        hideBootSplash();
     },
     progress: {
         color: '#0085F3',
