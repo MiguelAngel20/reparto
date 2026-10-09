@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CardAccountController;
 use App\Http\Controllers\CompanyBalanceController;
@@ -42,6 +43,15 @@ Route::middleware('guest')->group(function () {
     Route::post('/login/verify', [AuthController::class, 'verifyLoginCode'])->middleware('throttle:12,1');
     Route::post('/login/resend-code', [AuthController::class, 'resendLoginCode'])->middleware('throttle:3,1');
     Route::post('/login/cancel', [AuthController::class, 'cancelVerification'])->name('login.cancel');
+
+    Route::get('/recuperar-contrasena', [PasswordResetController::class, 'create'])->name('password.request');
+    Route::post('/recuperar-contrasena', [PasswordResetController::class, 'store'])->middleware('throttle:6,1')->name('password.email');
+    Route::get('/recuperar-contrasena/codigo', [PasswordResetController::class, 'showCode'])->name('password.code');
+    Route::post('/recuperar-contrasena/codigo', [PasswordResetController::class, 'verifyCode'])->middleware('throttle:12,1')->name('password.code.verify');
+    Route::post('/recuperar-contrasena/reenviar', [PasswordResetController::class, 'resendCode'])->middleware('throttle:3,1')->name('password.code.resend');
+    Route::get('/recuperar-contrasena/nueva', [PasswordResetController::class, 'showReset'])->name('password.reset');
+    Route::post('/recuperar-contrasena/nueva', [PasswordResetController::class, 'reset'])->name('password.update');
+    Route::post('/recuperar-contrasena/cancelar', [PasswordResetController::class, 'cancel'])->name('password.cancel');
 
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);

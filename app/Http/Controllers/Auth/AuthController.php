@@ -161,6 +161,10 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($remember) {
+            config(['session.lifetime' => 60 * 24 * 30]);
+        }
+
         Auth::login($user, $remember);
         $request->session()->regenerate();
 

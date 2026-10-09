@@ -31,7 +31,7 @@ export default function Login({
     const credentialsForm = useForm({
         email: '',
         password: '',
-        remember: false,
+        remember: true,
     });
 
     const verifyForm = useForm({
@@ -308,12 +308,12 @@ export default function Login({
                                 </button>
 
                                 <div className="mt-4 text-center">
-                                    <a
-                                        href="#"
+                                    <Link
+                                        href="/recuperar-contrasena"
                                         className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
                                     >
                                         ¿Has olvidado tu contraseña?
-                                    </a>
+                                    </Link>
                                 </div>
 
                                 <div className="mt-3 text-center">
