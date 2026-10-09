@@ -27,6 +27,7 @@ import {
     Settings,
     ContactRound,
     CreditCard,
+    HandCoins,
     X,
     UsersRound,
 } from 'lucide-react';
@@ -50,6 +51,7 @@ const allNavItems: NavItem[] = [
     { title: 'Gasto', href: '/gasto', icon: Receipt, section: 'gasto' },
     { title: 'Mis servicios', href: '/mis-servicios', icon: Briefcase, section: 'personal_service' },
     { title: 'Cuenta tarjeta', href: '/cuenta-tarjeta', icon: CreditCard, section: 'card_account' },
+    { title: 'Quién te debe', href: '/quien-te-debe', icon: HandCoins, section: 'debtors' },
 ];
 
 export function AppSidebar({ collapsed = false, narrow = false, asDrawer = false, onClose }: AppSidebarProps) {

@@ -27,6 +27,7 @@ export type SectionKey =
     | 'company_balance'
     | 'gasto'
     | 'card_account'
+    | 'debtors'
     | 'personal_service'
     | 'contacts';
 

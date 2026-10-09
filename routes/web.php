@@ -5,6 +5,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CardAccountController;
 use App\Http\Controllers\CompanyBalanceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DebtorController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\PersonalServiceController;
 use App\Http\Controllers\Reparto\CashSessionController;
@@ -105,6 +106,21 @@ Route::middleware('auth')->group(function () {
         Route::delete('/{account}/movimientos/{movement}', [CardAccountController::class, 'destroyMovement'])
             ->middleware('section:'.UserSection::CARD_ACCOUNT.',delete')
             ->name('movements.destroy');
+    });
+
+    Route::prefix('quien-te-debe')->name('debtors.')->middleware('section:'.UserSection::DEBTORS.',view')->group(function () {
+        Route::get('/', [DebtorController::class, 'index'])->name('index');
+        Route::get('/{debtor}', [DebtorController::class, 'show'])->name('show');
+        Route::middleware('section:'.UserSection::DEBTORS.',edit')->group(function () {
+            Route::post('/', [DebtorController::class, 'store'])->name('store');
+            Route::put('/{debtor}', [DebtorController::class, 'update'])->name('update');
+            Route::delete('/{debtor}', [DebtorController::class, 'destroy'])->name('destroy');
+            Route::post('/{debtor}/deudas', [DebtorController::class, 'storeDebt'])->name('debts.store');
+            Route::post('/{debtor}/abonos', [DebtorController::class, 'storePayment'])->name('payments.store');
+            Route::post('/{debtor}/liquidar', [DebtorController::class, 'settle'])->name('settle');
+            Route::put('/{debtor}/movimientos/{movement}', [DebtorController::class, 'updateMovement'])->name('movements.update');
+            Route::delete('/{debtor}/movimientos/{movement}', [DebtorController::class, 'destroyMovement'])->name('movements.destroy');
+        });
     });
 
     Route::prefix('cuenta-empresa')->name('company-balance.')->middleware('section:'.UserSection::COMPANY_BALANCE.',view')->group(function () {

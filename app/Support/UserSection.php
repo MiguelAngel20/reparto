@@ -16,6 +16,8 @@ class UserSection
 
     public const CARD_ACCOUNT = 'card_account';
 
+    public const DEBTORS = 'debtors';
+
     public const PERSONAL_SERVICE = 'personal_service';
 
     public const CONTACTS = 'contacts';
@@ -32,6 +34,7 @@ class UserSection
             self::COMPANY_BALANCE,
             self::GASTO,
             self::CARD_ACCOUNT,
+            self::DEBTORS,
             self::PERSONAL_SERVICE,
             self::CONTACTS,
         ];
@@ -49,6 +52,7 @@ class UserSection
             self::COMPANY_BALANCE => 'Cuenta empresa',
             self::GASTO => 'Gasto',
             self::CARD_ACCOUNT => 'Cuenta tarjeta',
+            self::DEBTORS => 'Quién te debe',
             self::PERSONAL_SERVICE => 'Mis servicios',
             self::CONTACTS => 'Contactos',
         ];
