@@ -130,28 +130,28 @@ class PersonalServiceSessionController extends Controller
 
     protected function applyServiceData(PersonalService $service, array $validated): void
     {
-        $spent = null;
+        $items = array_key_exists('items', $validated) && is_array($validated['items'])
+            ? $validated['items']
+            : [];
 
-        if (array_key_exists('items', $validated) && is_array($validated['items'])) {
-            $this->syncServiceItems($service, $validated['items']);
+        $this->syncServiceItems($service, $items);
 
-            $total = 0.0;
-            foreach ($validated['items'] as $item) {
-                if (empty(trim($item['description'] ?? ''))) {
-                    continue;
-                }
-
-                $total += (float) ($item['price'] ?? 0);
+        $listTotal = 0.0;
+        foreach ($items as $item) {
+            if (empty(trim($item['description'] ?? ''))) {
+                continue;
             }
 
-            $spent = $total > 0 ? round($total, 2) : null;
-        } else {
-            $service->items()->delete();
-
-            $spent = array_key_exists('spent_amount', $validated) && $validated['spent_amount'] !== null
-                ? round((float) $validated['spent_amount'], 2)
-                : null;
+            $listTotal += (float) ($item['price'] ?? 0);
         }
+
+        $spent = $listTotal > 0
+            ? round($listTotal, 2)
+            : (
+                array_key_exists('spent_amount', $validated) && $validated['spent_amount'] !== null
+                    ? round((float) $validated['spent_amount'], 2)
+                    : null
+            );
 
         $service->update([
             'name' => trim($validated['name']),
