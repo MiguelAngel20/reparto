@@ -20,4 +20,7 @@ export default defineConfig({
             '@layouts': resolve(__dirname, './resources/js/layouts'),
         },
     },
+    optimizeDeps: {
+        include: ['tesseract.js'],
+    },
 });

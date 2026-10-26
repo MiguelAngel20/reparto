@@ -22,6 +22,7 @@ import {
     ActivePersonalServicesBar,
     type ActivePersonalServiceSummary,
 } from '@/components/reparto/active-personal-services-bar';
+import { TicketPhoneExtractor } from '@/components/reparto/ticket-phone-extractor';
 import {
     Collapsible,
     CollapsibleContent,
@@ -461,6 +462,8 @@ function ShowPersonalServicePage({
                                 placeholder="Detalle del servicio"
                             />
                         </div>
+
+                        <TicketPhoneExtractor disabled={form.processing} />
                     </div>
                 </Card>
 
