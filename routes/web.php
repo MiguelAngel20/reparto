@@ -7,6 +7,7 @@ use App\Http\Controllers\CardAccountController;
 use App\Http\Controllers\CompanyBalanceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DebtorController;
+use App\Http\Controllers\MsiController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\PersonalServiceController;
 use App\Http\Controllers\Reparto\CashSessionController;
@@ -130,6 +131,20 @@ Route::middleware('auth')->group(function () {
             Route::post('/{debtor}/liquidar', [DebtorController::class, 'settle'])->name('settle');
             Route::put('/{debtor}/movimientos/{movement}', [DebtorController::class, 'updateMovement'])->name('movements.update');
             Route::delete('/{debtor}/movimientos/{movement}', [DebtorController::class, 'destroyMovement'])->name('movements.destroy');
+        });
+    });
+
+    Route::prefix('msi')->name('msi.')->middleware('section:'.UserSection::MSI.',view')->group(function () {
+        Route::get('/', [MsiController::class, 'index'])->name('index');
+        Route::get('/{account}', [MsiController::class, 'show'])->name('show');
+        Route::middleware('section:'.UserSection::MSI.',edit')->group(function () {
+            Route::post('/', [MsiController::class, 'store'])->name('store');
+            Route::put('/{account}', [MsiController::class, 'update'])->name('update');
+            Route::delete('/{account}', [MsiController::class, 'destroy'])->name('destroy');
+            Route::post('/{account}/compras', [MsiController::class, 'storePurchase'])->name('purchases.store');
+            Route::delete('/{account}/compras/{purchase}', [MsiController::class, 'destroyPurchase'])->name('purchases.destroy');
+            Route::post('/{account}/compras/{purchase}/adelantar', [MsiController::class, 'payMonths'])->name('purchases.pay');
+            Route::put('/{account}/compras/{purchase}/meses/{installment}', [MsiController::class, 'toggleInstallment'])->name('installments.toggle');
         });
     });
 

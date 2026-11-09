@@ -28,6 +28,7 @@ export type SectionKey =
     | 'gasto'
     | 'card_account'
     | 'debtors'
+    | 'msi'
     | 'personal_service'
     | 'contacts';
 

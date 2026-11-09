@@ -18,6 +18,8 @@ class UserSection
 
     public const DEBTORS = 'debtors';
 
+    public const MSI = 'msi';
+
     public const PERSONAL_SERVICE = 'personal_service';
 
     public const CONTACTS = 'contacts';
@@ -35,6 +37,7 @@ class UserSection
             self::GASTO,
             self::CARD_ACCOUNT,
             self::DEBTORS,
+            self::MSI,
             self::PERSONAL_SERVICE,
             self::CONTACTS,
         ];
@@ -53,6 +56,7 @@ class UserSection
             self::GASTO => 'Gasto',
             self::CARD_ACCOUNT => 'Cuenta tarjeta',
             self::DEBTORS => 'Quién te debe',
+            self::MSI => 'MSI',
             self::PERSONAL_SERVICE => 'Mis servicios',
             self::CONTACTS => 'Contactos',
         ];

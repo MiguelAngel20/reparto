@@ -66,6 +66,7 @@ class UserSectionPermissionService
                 'can_real_deposit' => false,
             ],
             UserSection::DEBTORS => ['can_view' => true, 'can_edit' => true],
+            UserSection::MSI => ['can_view' => false, 'can_edit' => false],
         ];
     }
 
@@ -274,6 +275,7 @@ class UserSectionPermissionService
             UserSection::COMPANY_BALANCE => 'company-balance.index',
             UserSection::CARD_ACCOUNT => 'card-account.index',
             UserSection::DEBTORS => 'debtors.index',
+            UserSection::MSI => 'msi.index',
         ] as $section => $routeName) {
             if ($this->canView($user, $section)) {
                 return route($routeName);
