@@ -29,6 +29,7 @@ class PersonalServiceSessionController extends Controller
 
         $service = PersonalService::query()->create([
             'user_id' => $user->id,
+            'cash_session_id' => $session->id,
             'service_date' => $session->businessDate(),
             'status' => PersonalService::STATUS_IN_PROGRESS,
             'name' => '',
@@ -85,6 +86,7 @@ class PersonalServiceSessionController extends Controller
         $openSession = CashSession::openLiveForUser($request->user()->id);
         if ($openSession !== null) {
             $completionUpdate['service_date'] = $openSession->businessDate();
+            $completionUpdate['cash_session_id'] = $openSession->id;
         }
 
         $service->update($completionUpdate);

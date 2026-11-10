@@ -173,8 +173,15 @@ class DailyEarningsHelper
         return PersonalService::query()
             ->where('user_id', $session->user_id)
             ->completed()
-            ->whereDate('service_date', '>=', $start)
-            ->whereDate('service_date', '<=', $end);
+            ->where(function (Builder $query) use ($session, $start, $end) {
+                $query->where('cash_session_id', $session->id)
+                    ->orWhere(function (Builder $legacy) use ($session, $start, $end) {
+                        $legacy->whereNull('cash_session_id')
+                            ->where('user_id', $session->user_id)
+                            ->whereDate('service_date', '>=', $start)
+                            ->whereDate('service_date', '<=', $end);
+                    });
+            });
     }
 
     /** @return Builder<DailyExpense> */
@@ -184,8 +191,15 @@ class DailyEarningsHelper
 
         return DailyExpense::query()
             ->where('user_id', $session->user_id)
-            ->whereDate('expense_date', '>=', $start)
-            ->whereDate('expense_date', '<=', $end);
+            ->where(function (Builder $query) use ($session, $start, $end) {
+                $query->where('cash_session_id', $session->id)
+                    ->orWhere(function (Builder $legacy) use ($session, $start, $end) {
+                        $legacy->whereNull('cash_session_id')
+                            ->where('user_id', $session->user_id)
+                            ->whereDate('expense_date', '>=', $start)
+                            ->whereDate('expense_date', '<=', $end);
+                    });
+            });
     }
 
     /**

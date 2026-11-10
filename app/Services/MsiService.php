@@ -46,8 +46,11 @@ class MsiService
         $originalTotal = 0.0;
         $remainingTotal = 0.0;
         $paidTotal = 0.0;
+        $dueThisMonth = 0.0;
         $activePurchases = 0;
         $nextDue = null;
+        $currentMonthStart = now()->startOfMonth();
+        $currentMonthEnd = now()->endOfMonth();
 
         foreach ($purchases as $purchase) {
             $stats = $this->purchaseStats($purchase);
@@ -65,6 +68,20 @@ class MsiService
                     $nextDue = $candidate;
                 }
             }
+
+            $installments = $purchase->relationLoaded('installments')
+                ? $purchase->installments
+                : $purchase->installments()->get();
+
+            foreach ($installments as $installment) {
+                if ($installment->isPaid() || ! $installment->due_date) {
+                    continue;
+                }
+
+                if ($installment->due_date->between($currentMonthStart, $currentMonthEnd)) {
+                    $dueThisMonth += (float) $installment->amount;
+                }
+            }
         }
 
         return [
@@ -75,6 +92,8 @@ class MsiService
             'original_total' => round($originalTotal, 2),
             'remaining_total' => round($remainingTotal, 2),
             'paid_total' => round($paidTotal, 2),
+            'due_this_month' => round($dueThisMonth, 2),
+            'due_this_month_label' => now()->locale('es')->translatedFormat('M Y'),
             'next_due_date' => $nextDue?->format('Y-m-d'),
             'next_due_date_formatted' => $nextDue?->format('d/m/Y'),
             'opened_at' => $account->created_at?->format('d/m/Y'),

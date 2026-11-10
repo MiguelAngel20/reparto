@@ -9,6 +9,7 @@ class DailyExpense extends Model
 {
     protected $fillable = [
         'user_id',
+        'cash_session_id',
         'expense_date',
         'name',
         'amount',
@@ -26,5 +27,10 @@ class DailyExpense extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function cashSession(): BelongsTo
+    {
+        return $this->belongsTo(CashSession::class);
     }
 }

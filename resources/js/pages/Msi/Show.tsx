@@ -17,11 +17,11 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarClock,
-    Check,
     ChevronDown,
     ChevronUp,
     Pencil,
     Plus,
+    Send,
     Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -66,24 +66,34 @@ type AccountDetail = {
     original_total: number;
     remaining_total: number;
     paid_total: number;
+    due_this_month: number;
+    due_this_month_label: string;
     next_due_date_formatted: string | null;
     purchases: Purchase[];
 };
 
+type SystemUser = {
+    id: number;
+    name: string;
+    email: string;
+};
+
 interface MsiShowProps {
     account: AccountDetail;
+    users: SystemUser[];
 }
 
 const cardClass =
     'border border-slate-200/80 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#262626] sm:p-5';
 
-export default function MsiShow({ account }: MsiShowProps) {
+export default function MsiShow({ account, users = [] }: MsiShowProps) {
     const { canEdit } = useSectionAccess('msi');
     const page = usePage();
     const flash = page.props.flash as { success?: string; error?: string } | undefined;
     const [purchaseOpen, setPurchaseOpen] = useState(false);
     const [renameOpen, setRenameOpen] = useState(false);
-    const [advanceOpen, setAdvanceOpen] = useState<Purchase | null>(null);
+    const [sendOpen, setSendOpen] = useState<Purchase | null>(null);
+    const [sendMode, setSendMode] = useState<'user' | 'manual'>('user');
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
     const renameForm = useForm({ name: account.name });
@@ -96,9 +106,9 @@ export default function MsiShow({ account }: MsiShowProps) {
         months_already_paid: '0',
         notes: '',
     });
-    const advanceForm = useForm({
-        months: '1',
-        paid_at: localDateInputValue(),
+    const sendForm = useForm({
+        user_id: '',
+        email: '',
     });
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -147,15 +157,29 @@ export default function MsiShow({ account }: MsiShowProps) {
         });
     };
 
-    const submitAdvance = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!advanceOpen) return;
+    const openSendModal = (purchase: Purchase) => {
+        sendForm.setData({ user_id: '', email: '' });
+        sendForm.clearErrors();
+        setSendMode('user');
+        setSendOpen(purchase);
+    };
 
-        advanceForm.post(`/msi/${account.id}/compras/${advanceOpen.id}/adelantar`, {
+    const submitSend = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!sendOpen) return;
+
+        sendForm.transform((data) =>
+            sendMode === 'user'
+                ? { user_id: data.user_id ? Number(data.user_id) : null, email: null }
+                : { user_id: null, email: data.email.trim() },
+        );
+
+        sendForm.post(`/msi/${account.id}/compras/${sendOpen.id}/enviar`, {
             preserveScroll: true,
             onSuccess: () => {
-                setAdvanceOpen(null);
-                advanceForm.setData({ months: '1', paid_at: localDateInputValue() });
+                setSendOpen(null);
+                sendForm.reset();
+                sendForm.setData({ user_id: '', email: '' });
             },
         });
     };
@@ -260,7 +284,7 @@ export default function MsiShow({ account }: MsiShowProps) {
                     </div>
                 </Card>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <Card className={cardClass}>
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Monto inicial</p>
                         <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
@@ -279,6 +303,13 @@ export default function MsiShow({ account }: MsiShowProps) {
                         <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
                             ${formatCurrency(account.paid_total)}
                         </p>
+                    </Card>
+                    <Card className={cardClass}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">A pagar este mes</p>
+                        <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-sky-700 dark:text-sky-400">
+                            ${formatCurrency(account.due_this_month)}
+                        </p>
+                        <p className="mt-1 text-xs capitalize text-slate-500">{account.due_this_month_label}</p>
                     </Card>
                 </div>
 
@@ -299,7 +330,7 @@ export default function MsiShow({ account }: MsiShowProps) {
                 ) : (
                     <ul className="grid gap-3">
                         {account.purchases.map((purchase) => {
-                            const open = expanded[purchase.id] ?? purchase.status === 'active';
+                            const open = expanded[purchase.id] ?? false;
                             return (
                                 <li key={purchase.id} className={cn(cardClass, 'rounded-xl')}>
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -320,8 +351,7 @@ export default function MsiShow({ account }: MsiShowProps) {
                                                 </span>
                                             </div>
                                             <p className="mt-1 text-sm text-slate-500">
-                                                {purchase.paid_months}/{purchase.months_total} meses · mensualidad $
-                                                {formatCurrency(purchase.monthly_amount)}
+                                                {purchase.paid_months}/{purchase.months_total} meses
                                                 {purchase.next_due_date_formatted
                                                     ? ` · próximo ${purchase.next_due_date_formatted}`
                                                     : ''}
@@ -332,7 +362,7 @@ export default function MsiShow({ account }: MsiShowProps) {
                                                     style={{ width: `${purchase.progress_percent}%` }}
                                                 />
                                             </div>
-                                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                                                 <div>
                                                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Inicial</p>
                                                     <p className="font-mono text-sm font-semibold tabular-nums">
@@ -355,6 +385,12 @@ export default function MsiShow({ account }: MsiShowProps) {
                                                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Inicio pago</p>
                                                     <p className="text-sm font-medium">{purchase.first_due_date_formatted}</p>
                                                 </div>
+                                                <div>
+                                                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Mensualidad</p>
+                                                    <p className="font-mono text-sm font-semibold tabular-nums text-sky-700 dark:text-sky-400">
+                                                        ${formatCurrency(purchase.monthly_amount)}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
@@ -368,20 +404,14 @@ export default function MsiShow({ account }: MsiShowProps) {
                                                 {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                                                 Meses
                                             </button>
-                                            {canEdit && purchase.pending_months > 0 && (
+                                            {canEdit && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => {
-                                                        advanceForm.setData({
-                                                            months: '1',
-                                                            paid_at: localDateInputValue(),
-                                                        });
-                                                        setAdvanceOpen(purchase);
-                                                    }}
-                                                    className="inline-flex h-9 items-center gap-1 rounded-lg bg-sidebar-active px-3 text-xs font-semibold text-white"
+                                                    onClick={() => openSendModal(purchase)}
+                                                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 dark:border-[#3a3a3a] dark:text-slate-200"
                                                 >
-                                                    <Check className="h-3.5 w-3.5" />
-                                                    Adelantar
+                                                    <Send className="h-3.5 w-3.5" />
+                                                    Enviar
                                                 </button>
                                             )}
                                             {canEdit && (
@@ -640,56 +670,115 @@ export default function MsiShow({ account }: MsiShowProps) {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={!!advanceOpen} onOpenChange={(open) => !open && setAdvanceOpen(null)}>
+            <Dialog open={!!sendOpen} onOpenChange={(open) => !open && setSendOpen(null)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Adelantar meses</DialogTitle>
+                        <DialogTitle>Enviar detalle MSI</DialogTitle>
                     </DialogHeader>
-                    {advanceOpen && (
-                        <form onSubmit={submitAdvance} noValidate className="space-y-4">
+                    {sendOpen && (
+                        <form onSubmit={submitSend} noValidate className="space-y-4">
                             <p className="text-sm text-slate-500">
-                                {advanceOpen.name}: quedan {advanceOpen.pending_months} meses pendientes.
+                                Se enviará el detalle de <strong>{sendOpen.name}</strong>: monto, mensualidad, meses y
+                                calendario de pagos.
                             </p>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div>
-                                    <Label htmlFor="advance-months" className="mb-1 block text-xs text-slate-500">
-                                        Meses a marcar
-                                    </Label>
-                                    <Input
-                                        id="advance-months"
-                                        type="number"
-                                        min="1"
-                                        max={advanceOpen.pending_months}
-                                        value={advanceForm.data.months}
-                                        onChange={(e) => advanceForm.setData('months', e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="advance-date" className="mb-1 block text-xs text-slate-500">
-                                        Fecha de pago
-                                    </Label>
-                                    <Input
-                                        id="advance-date"
-                                        type="date"
-                                        value={advanceForm.data.paid_at}
-                                        onChange={(e) => advanceForm.setData('paid_at', e.target.value)}
-                                    />
-                                </div>
+
+                            <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 p-1 dark:border-[#3a3a3a]">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSendMode('user');
+                                        sendForm.setData('email', '');
+                                        sendForm.clearErrors();
+                                    }}
+                                    className={cn(
+                                        'h-9 rounded-lg text-xs font-semibold',
+                                        sendMode === 'user'
+                                            ? 'bg-sidebar-active text-white'
+                                            : 'text-slate-600 dark:text-slate-300',
+                                    )}
+                                >
+                                    Usuario del sistema
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSendMode('manual');
+                                        sendForm.setData('user_id', '');
+                                        sendForm.clearErrors();
+                                    }}
+                                    className={cn(
+                                        'h-9 rounded-lg text-xs font-semibold',
+                                        sendMode === 'manual'
+                                            ? 'bg-sidebar-active text-white'
+                                            : 'text-slate-600 dark:text-slate-300',
+                                    )}
+                                >
+                                    Correo manual
+                                </button>
                             </div>
+
+                            {sendMode === 'user' ? (
+                                <div>
+                                    <Label htmlFor="send-user" className="mb-1 block text-xs text-slate-500">
+                                        Selecciona un usuario
+                                    </Label>
+                                    <select
+                                        id="send-user"
+                                        value={sendForm.data.user_id}
+                                        onChange={(e) => sendForm.setData('user_id', e.target.value)}
+                                        className={cn(
+                                            'flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30',
+                                            sendForm.errors.user_id && 'border-rose-500',
+                                        )}
+                                    >
+                                        <option value="">Elige un usuario…</option>
+                                        {users.map((user) => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.name} ({user.email})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {sendForm.errors.user_id && (
+                                        <p className="mt-1 text-xs text-rose-600">{sendForm.errors.user_id}</p>
+                                    )}
+                                    {sendForm.errors.email && !sendForm.data.user_id && (
+                                        <p className="mt-1 text-xs text-rose-600">{sendForm.errors.email}</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div>
+                                    <Label htmlFor="send-email" className="mb-1 block text-xs text-slate-500">
+                                        Correo electrónico
+                                    </Label>
+                                    <Input
+                                        id="send-email"
+                                        type="email"
+                                        value={sendForm.data.email}
+                                        onChange={(e) => sendForm.setData('email', e.target.value)}
+                                        placeholder="correo@ejemplo.com"
+                                        className={cn(sendForm.errors.email && 'border-rose-500')}
+                                    />
+                                    {sendForm.errors.email && (
+                                        <p className="mt-1 text-xs text-rose-600">{sendForm.errors.email}</p>
+                                    )}
+                                </div>
+                            )}
+
                             <DialogFooter className="gap-2 sm:gap-0">
                                 <button
                                     type="button"
-                                    onClick={() => setAdvanceOpen(null)}
+                                    onClick={() => setSendOpen(null)}
                                     className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-medium"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={advanceForm.processing}
-                                    className="inline-flex h-10 items-center justify-center rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                    disabled={sendForm.processing}
+                                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-sidebar-active px-4 text-sm font-semibold text-white disabled:opacity-50"
                                 >
-                                    {advanceForm.processing ? 'Guardando...' : 'Marcar pagados'}
+                                    <Send className="h-3.5 w-3.5" />
+                                    {sendForm.processing ? 'Enviando...' : 'Enviar correo'}
                                 </button>
                             </DialogFooter>
                         </form>

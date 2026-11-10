@@ -51,9 +51,12 @@ class PersonalServiceController extends Controller
 
     public function store(StorePersonalServiceRequest $request): RedirectResponse
     {
+        $userId = $request->user()->id;
+
         PersonalService::query()->create([
-            'user_id' => $request->user()->id,
-            'service_date' => CashSession::activityBookingDateForUser($request->user()->id),
+            'user_id' => $userId,
+            'cash_session_id' => CashSession::openLiveIdForUser($userId),
+            'service_date' => CashSession::activityBookingDateForUser($userId),
             'status' => PersonalService::STATUS_COMPLETED,
             'name' => trim($request->validated('name')),
             'amount' => round((float) $request->validated('amount'), 2),

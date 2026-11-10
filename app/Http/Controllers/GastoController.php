@@ -48,9 +48,12 @@ class GastoController extends Controller
 
     public function store(StoreDailyExpenseRequest $request): RedirectResponse
     {
+        $userId = $request->user()->id;
+
         DailyExpense::query()->create([
-            'user_id' => $request->user()->id,
-            'expense_date' => CashSession::activityBookingDateForUser($request->user()->id),
+            'user_id' => $userId,
+            'cash_session_id' => CashSession::openLiveIdForUser($userId),
+            'expense_date' => CashSession::activityBookingDateForUser($userId),
             'name' => trim($request->validated('name')),
             'amount' => round((float) $request->validated('amount'), 2),
             'concept' => $request->validated('concept'),

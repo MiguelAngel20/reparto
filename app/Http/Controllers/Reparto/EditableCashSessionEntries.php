@@ -32,6 +32,13 @@ trait EditableCashSessionEntries
     protected function assertExpenseBelongsToSession(DailyExpense $expense, CashSession $session): void
     {
         abort_unless($expense->user_id === $session->user_id, 403);
+
+        if ($expense->cash_session_id !== null) {
+            abort_unless((int) $expense->cash_session_id === (int) $session->id, 403);
+
+            return;
+        }
+
         $this->assertDateInSessionActivity($expense->expense_date->format('Y-m-d'), $session);
     }
 
@@ -39,6 +46,13 @@ trait EditableCashSessionEntries
     {
         abort_unless($service->user_id === $session->user_id, 403);
         abort_unless($service->isCompleted(), 403);
+
+        if ($service->cash_session_id !== null) {
+            abort_unless((int) $service->cash_session_id === (int) $session->id, 403);
+
+            return;
+        }
+
         $this->assertDateInSessionActivity($service->service_date->format('Y-m-d'), $session);
     }
 

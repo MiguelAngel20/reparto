@@ -52,6 +52,16 @@ class CashSession extends Model
         return $this->hasMany(DeliveryOrder::class);
     }
 
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(DailyExpense::class);
+    }
+
+    public function personalServices(): HasMany
+    {
+        return $this->hasMany(PersonalService::class);
+    }
+
     public function isOpen(): bool
     {
         return $this->status === self::STATUS_OPEN;
@@ -80,21 +90,15 @@ class CashSession extends Model
     }
 
     /**
-     * Rango de fechas en que pueden registrarse servicios propios y gastos de esta jornada.
+     * Rango de fechas contables de esta jornada (un día = capture_date).
      *
      * @return array{0: string, 1: string}
      */
     public function activityDateRange(): array
     {
-        $start = $this->businessDate();
+        $date = $this->businessDate();
 
-        if ($this->isOpen()) {
-            return [$start, $start];
-        }
-
-        $end = $this->ended_at?->toDateString() ?? $start;
-
-        return [$start, $end];
+        return [$date, $date];
     }
 
     /**
@@ -109,6 +113,11 @@ class CashSession extends Model
         }
 
         return now()->toDateString();
+    }
+
+    public static function openLiveIdForUser(int $userId): ?int
+    {
+        return self::openLiveForUser($userId)?->id;
     }
 
     public function scopeLive(Builder $query): Builder

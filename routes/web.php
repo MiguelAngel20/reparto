@@ -144,6 +144,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/{account}/compras', [MsiController::class, 'storePurchase'])->name('purchases.store');
             Route::delete('/{account}/compras/{purchase}', [MsiController::class, 'destroyPurchase'])->name('purchases.destroy');
             Route::post('/{account}/compras/{purchase}/adelantar', [MsiController::class, 'payMonths'])->name('purchases.pay');
+            Route::post('/{account}/compras/{purchase}/enviar', [MsiController::class, 'sendPurchaseEmail'])->name('purchases.send');
             Route::put('/{account}/compras/{purchase}/meses/{installment}', [MsiController::class, 'toggleInstallment'])->name('installments.toggle');
         });
     });

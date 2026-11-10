@@ -7,6 +7,7 @@ use App\Http\Requests\Reparto\CloseCashSessionRequest;
 use App\Http\Requests\Reparto\OpenCashSessionRequest;
 use App\Models\CashSession;
 use App\Models\DeliveryOrder;
+use App\Models\PersonalService;
 use App\Services\CashSessionSummary;
 use App\Services\CompanyBalanceService;
 use Illuminate\Http\RedirectResponse;
@@ -64,6 +65,10 @@ class CashSessionController extends Controller
 
         if (DeliveryOrder::hasActiveOrdersForUser($user->id)) {
             return back()->with('error', 'Finaliza todos los pedidos en curso antes de cerrar la jornada.');
+        }
+
+        if (PersonalService::hasActiveServicesForUser($user->id, $session->id)) {
+            return back()->with('error', 'Finaliza todos los servicios propios en curso antes de cerrar la jornada.');
         }
 
         $endedAt = now();

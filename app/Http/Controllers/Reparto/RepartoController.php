@@ -98,11 +98,15 @@ class RepartoController extends Controller
             : DailyEarningsHelper::daySummaryForUser($user->id, $today);
 
         $activeOrders = DeliveryOrder::activeOrdersForUser($user->id)
+            ->when(
+                $openSession !== null,
+                fn ($orders) => $orders->where('cash_session_id', $openSession->id)->values(),
+            )
             ->map(fn ($order) => $this->formatActiveOrderSummary($order))
             ->values()
             ->all();
 
-        $activePersonalServices = PersonalService::activeServicesForUser($user->id)
+        $activePersonalServices = PersonalService::activeServicesForUser($user->id, $openSession?->id)
             ->map(fn ($service) => $this->formatActivePersonalServiceSummary($service))
             ->values()
             ->all();
@@ -175,6 +179,7 @@ class RepartoController extends Controller
 
         DailyExpense::query()->create([
             'user_id' => $request->user()->id,
+            'cash_session_id' => $session->id,
             'expense_date' => $session->businessDate(),
             'name' => trim($request->validated('name')),
             'amount' => round((float) $request->validated('amount'), 2),
@@ -199,6 +204,7 @@ class RepartoController extends Controller
 
         PersonalService::query()->create([
             'user_id' => $request->user()->id,
+            'cash_session_id' => $session->id,
             'service_date' => $session->businessDate(),
             'status' => PersonalService::STATUS_COMPLETED,
             'name' => trim($request->validated('name')),

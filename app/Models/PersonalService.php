@@ -15,6 +15,7 @@ class PersonalService extends Model
 
     protected $fillable = [
         'user_id',
+        'cash_session_id',
         'service_date',
         'status',
         'name',
@@ -37,6 +38,11 @@ class PersonalService extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function cashSession(): BelongsTo
+    {
+        return $this->belongsTo(CashSession::class);
     }
 
     public function items(): HasMany
@@ -70,13 +76,29 @@ class PersonalService extends Model
     }
 
     /** @return \Illuminate\Database\Eloquent\Collection<int, self> */
-    public static function activeServicesForUser(int $userId)
+    public static function activeServicesForUser(int $userId, ?int $cashSessionId = null)
     {
         return self::query()
             ->where('user_id', $userId)
             ->where('status', self::STATUS_IN_PROGRESS)
+            ->when(
+                $cashSessionId !== null,
+                fn (Builder $query) => $query->where('cash_session_id', $cashSessionId),
+            )
             ->orderBy('started_at')
             ->orderBy('id')
             ->get();
+    }
+
+    public static function hasActiveServicesForUser(int $userId, ?int $cashSessionId = null): bool
+    {
+        return self::query()
+            ->where('user_id', $userId)
+            ->where('status', self::STATUS_IN_PROGRESS)
+            ->when(
+                $cashSessionId !== null,
+                fn (Builder $query) => $query->where('cash_session_id', $cashSessionId),
+            )
+            ->exists();
     }
 }
